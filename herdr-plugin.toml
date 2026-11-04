@@ -1,0 +1,230 @@
+id = "herdr-human"
+name = "Herdr Human"
+version = "0.1.0"
+min_herdr_version = "0.8.0"
+description = "Friendly names instead of ids: list, find, message and rename herdr agents across machines with the hum command."
+platforms = ["linux", "macos", "windows"]
+
+[[actions]]
+id = "overview-windows"
+title = "Show all agents (hum ls)"
+contexts = ["workspace", "tab", "pane"]
+platforms = ["windows"]
+command = [
+  "powershell.exe",
+  "-NoLogo",
+  "-NoProfile",
+  "-ExecutionPolicy",
+  "Bypass",
+  "-Command",
+  "& $env:HERDR_BIN_PATH plugin pane open --plugin $env:HERDR_PLUGIN_ID --entrypoint overview-windows --placement popup"
+]
+
+[[actions]]
+id = "overview-unix"
+title = "Show all agents (hum ls)"
+contexts = ["workspace", "tab", "pane"]
+platforms = ["linux", "macos"]
+command = [
+  "sh",
+  "-lc",
+  "exec \"$HERDR_BIN_PATH\" plugin pane open --plugin \"$HERDR_PLUGIN_ID\" --entrypoint overview-unix --placement popup"
+]
+
+[[actions]]
+id = "machines-windows"
+title = "Manage saved machines (hum machines menu)"
+contexts = ["workspace", "tab", "pane"]
+platforms = ["windows"]
+command = [
+  "powershell.exe",
+  "-NoLogo",
+  "-NoProfile",
+  "-ExecutionPolicy",
+  "Bypass",
+  "-Command",
+  "& $env:HERDR_BIN_PATH plugin pane open --plugin $env:HERDR_PLUGIN_ID --entrypoint machines-windows --placement popup"
+]
+
+[[actions]]
+id = "machines-unix"
+title = "Manage saved machines (hum machines menu)"
+contexts = ["workspace", "tab", "pane"]
+platforms = ["linux", "macos"]
+command = [
+  "sh",
+  "-lc",
+  "exec \"$HERDR_BIN_PATH\" plugin pane open --plugin \"$HERDR_PLUGIN_ID\" --entrypoint machines-unix --placement popup"
+]
+
+[[panes]]
+id = "machines-windows"
+title = "Herdr machines"
+platforms = ["windows"]
+placement = "popup"
+width = "90%"
+height = "65%"
+command = [
+  "powershell.exe",
+  "-NoLogo",
+  "-NoProfile",
+  "-ExecutionPolicy",
+  "Bypass",
+  "-Command",
+  "& (Join-Path $env:HERDR_PLUGIN_ROOT 'bin\\hum.exe') machines menu"
+]
+
+[[panes]]
+id = "machines-unix"
+title = "Herdr machines"
+platforms = ["linux", "macos"]
+placement = "popup"
+width = "90%"
+height = "65%"
+command = [
+  "sh",
+  "-c",
+  "exec \"$HERDR_PLUGIN_ROOT/bin/hum\" machines menu"
+]
+
+[[panes]]
+id = "overview-windows"
+title = "Herdr agents"
+platforms = ["windows"]
+placement = "popup"
+width = "80%"
+height = "70%"
+command = [
+  "powershell.exe",
+  "-NoLogo",
+  "-NoProfile",
+  "-ExecutionPolicy",
+  "Bypass",
+  "-Command",
+  "& (Join-Path $env:HERDR_PLUGIN_ROOT 'bin\\hum.exe') ls; Write-Host ''; Write-Host 'Press any key to close'; [void][Console]::ReadKey($true)"
+]
+
+[[panes]]
+id = "overview-unix"
+title = "Herdr agents"
+platforms = ["linux", "macos"]
+placement = "popup"
+width = "80%"
+height = "70%"
+command = [
+  "sh",
+  "-c",
+  "\"$HERDR_PLUGIN_ROOT/bin/hum\" ls; printf '\\nPress enter to close'; read -r _"
+]
+
+[[actions]]
+id = "pick-windows"
+title = "Talk to agents (hum pick)"
+contexts = ["workspace", "tab", "pane"]
+platforms = ["windows"]
+command = [
+  "powershell.exe",
+  "-NoLogo",
+  "-NoProfile",
+  "-ExecutionPolicy",
+  "Bypass",
+  "-Command",
+  "& $env:HERDR_BIN_PATH plugin pane open --plugin $env:HERDR_PLUGIN_ID --entrypoint pick-windows --placement popup"
+]
+
+[[actions]]
+id = "pick-unix"
+title = "Talk to agents (hum pick)"
+contexts = ["workspace", "tab", "pane"]
+platforms = ["linux", "macos"]
+command = [
+  "sh",
+  "-lc",
+  "exec \"$HERDR_BIN_PATH\" plugin pane open --plugin \"$HERDR_PLUGIN_ID\" --entrypoint pick-unix --placement popup"
+]
+
+[[actions]]
+id = "attention-windows"
+title = "Who needs me? (hum attention)"
+contexts = ["workspace", "tab", "pane"]
+platforms = ["windows"]
+command = [
+  "powershell.exe",
+  "-NoLogo",
+  "-NoProfile",
+  "-ExecutionPolicy",
+  "Bypass",
+  "-Command",
+  "& $env:HERDR_BIN_PATH plugin pane open --plugin $env:HERDR_PLUGIN_ID --entrypoint attention-windows --placement popup"
+]
+
+[[actions]]
+id = "attention-unix"
+title = "Who needs me? (hum attention)"
+contexts = ["workspace", "tab", "pane"]
+platforms = ["linux", "macos"]
+command = [
+  "sh",
+  "-lc",
+  "exec \"$HERDR_BIN_PATH\" plugin pane open --plugin \"$HERDR_PLUGIN_ID\" --entrypoint attention-unix --placement popup"
+]
+
+[[panes]]
+id = "pick-windows"
+title = "Talk to agents"
+platforms = ["windows"]
+placement = "popup"
+width = "90%"
+height = "80%"
+command = [
+  "powershell.exe",
+  "-NoLogo",
+  "-NoProfile",
+  "-ExecutionPolicy",
+  "Bypass",
+  "-Command",
+  "& (Join-Path $env:HERDR_PLUGIN_ROOT 'bin\\hum.exe') pick"
+]
+
+[[panes]]
+id = "pick-unix"
+title = "Talk to agents"
+platforms = ["linux", "macos"]
+placement = "popup"
+width = "90%"
+height = "80%"
+command = [
+  "sh",
+  "-c",
+  "exec \"$HERDR_PLUGIN_ROOT/bin/hum\" pick"
+]
+
+[[panes]]
+id = "attention-windows"
+title = "Who needs me"
+platforms = ["windows"]
+placement = "popup"
+width = "80%"
+height = "60%"
+command = [
+  "powershell.exe",
+  "-NoLogo",
+  "-NoProfile",
+  "-ExecutionPolicy",
+  "Bypass",
+  "-Command",
+  "& (Join-Path $env:HERDR_PLUGIN_ROOT 'bin\\hum.exe') attention; Write-Host ''; Write-Host 'Press any key to close'; [void][Console]::ReadKey($true)"
+]
+
+[[panes]]
+id = "attention-unix"
+title = "Who needs me"
+platforms = ["linux", "macos"]
+placement = "popup"
+width = "80%"
+height = "60%"
+command = [
+  "sh",
+  "-c",
+  "\"$HERDR_PLUGIN_ROOT/bin/hum\" attention; printf '\\nPress enter to close'; read -r _"
+]
