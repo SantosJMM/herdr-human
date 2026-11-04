@@ -13,7 +13,7 @@
 # se calcula desde la ubicación del propio script.
 #
 # Variables para pruebas: HUM_BASE_URL (base de descargas), HUM_GO (ejecutable de
-# go), HUM_RETRY_SLEEP (segundos entre reintentos).
+# go), HUM_UNAME (ejecutable de uname), HUM_RETRY_SLEEP (segundos entre reintentos).
 set -u
 
 repo="SantosJMM/herdr-human"
@@ -21,6 +21,7 @@ script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 root=$(CDPATH= cd -- "$script_dir/.." && pwd)
 base_url="${HUM_BASE_URL:-https://github.com/$repo/releases/download}"
 go_bin="${HUM_GO:-go}"
+uname_bin="${HUM_UNAME:-uname}"
 retry_sleep="${HUM_RETRY_SLEEP:-3}"
 attempts=3
 out="$root/bin/hum"
@@ -74,15 +75,17 @@ try_download() {
     return 1
   fi
 
-  case "$(uname -s 2>/dev/null)" in
+  sys=$("$uname_bin" -s 2>/dev/null)
+  cpu=$("$uname_bin" -m 2>/dev/null)
+  case "$sys" in
     Linux) os=linux ;;
     Darwin) os=darwin ;;
-    *) reason="no prebuilt binary for $(uname -s 2>/dev/null || echo this system)"; return 1 ;;
+    *) reason="no prebuilt binary for ${sys:-this system}"; return 1 ;;
   esac
-  case "$(uname -m 2>/dev/null)" in
+  case "$cpu" in
     x86_64 | amd64) arch=amd64 ;;
     aarch64 | arm64) arch=arm64 ;;
-    *) reason="no prebuilt binary for $(uname -m 2>/dev/null || echo this CPU)"; return 1 ;;
+    *) reason="no prebuilt binary for ${cpu:-this CPU}"; return 1 ;;
   esac
   asset="hum-$os-$arch"
   release="$base_url/v$version"

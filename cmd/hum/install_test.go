@@ -57,7 +57,7 @@ func shellKinds() []shellKind {
 					system = "Plan9"
 				}
 				writeFile(t, filepath.Join(dir, "uname"), "#!/bin/sh\ncase \"$1\" in -m) echo x86_64;; *) echo "+system+";; esac\n", 0o755)
-				return []string{"PATH=" + dir + string(os.PathListSeparator) + os.Getenv("PATH")}
+				return []string{"HUM_UNAME=" + filepath.Join(dir, "uname")}
 			},
 			goStub: func(t *testing.T, dir string) string {
 				p := filepath.Join(dir, "gostub")
