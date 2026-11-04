@@ -1,0 +1,68 @@
+# Publica los binarios de hum cuando se sube una etiqueta vX.Y.Z.
+# scripts/install.sh y scripts/install.ps1 (los pasos [[build]] del manifest)
+# descargan estos mismos archivos y comprueban su SHA-256 contra SHA256SUMS.
+# Los nombres de los archivos son un contrato con esos scripts: si cambian aquí,
+# hay que cambiarlos allí (cmd/hum/install_test.go lo vigila).
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go vet ./...
+      - run: go test ./...
+
+  publish:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: The tag must match the manifest version
+        run: |
+          manifest=$(sed -n 's/^version[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' herdr-plugin.toml | head -n 1)
+          if [ "v$manifest" != "$GITHUB_REF_NAME" ]; then
+            echo "tag $GITHUB_REF_NAME does not match version $manifest in herdr-plugin.toml" >&2
+            exit 1
+          fi
+
+      - name: Build the binaries
+        env:
+          CGO_ENABLED: "0"
+        run: |
+          mkdir dist
+          for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64; do
+            os=${target%/*}
+            arch=${target#*/}
+            ext=""
+            [ "$os" = windows ] && ext=".exe"
+            GOOS=$os GOARCH=$arch go build -trimpath -ldflags "-s -w" -o "dist/hum-$os-$arch$ext" ./cmd/hum
+          done
+          # hum-linux-amd64, hum-linux-arm64, hum-darwin-amd64, hum-darwin-arm64,
+          # hum-windows-amd64.exe, hum-windows-arm64.exe
+          (cd dist && sha256sum hum-* > SHA256SUMS)
+          cat dist/SHA256SUMS
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --generate-notes

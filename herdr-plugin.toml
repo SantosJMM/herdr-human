@@ -5,6 +5,16 @@ min_herdr_version = "0.8.0"
 description = "Friendly names instead of ids: list, find, message and rename herdr agents across machines with the hum command."
 platforms = ["linux", "macos", "windows"]
 
+# Instalación: descargan el binario del release de GitHub (SHA-256 comprobado) y,
+# si no se puede, compilan con Go. Ver scripts/install.sh y scripts/install.ps1.
+[[build]]
+platforms = ["linux", "macos"]
+command = ["sh", "scripts/install.sh"]
+
+[[build]]
+platforms = ["windows"]
+command = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "scripts/install.ps1"]
+
 [[actions]]
 id = "overview-windows"
 title = "Show all agents (hum ls)"

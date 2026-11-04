@@ -277,7 +277,7 @@ func TestSearchMatchesNameAgentWorkspaceAndMachine(t *testing.T) {
 
 	for query, want := range map[string]string{
 		"codex":   "importer",
-		"demo":     "Needs approval",
+		"demo":    "Needs approval",
 		"odoous":  "Finished job",
 		"apprvl":  "Needs approval", // difuso: letras en orden
 		"pane id": "Pane ID work",

@@ -21,6 +21,27 @@ sent to odoous/w1:p2 (odoous-odoo-dev)
 
 ## Instalación
 
+### Como plugin de herdr
+
+```powershell
+herdr plugin install SantosJMM/herdr-human
+```
+
+El paso de instalación (`scripts/install.sh` en Linux y macOS,
+`scripts/install.ps1` en Windows) descarga el binario ya compilado del release de
+GitHub cuya etiqueta coincide con la `version` del manifest, comprueba su
+SHA-256 contra el `SHA256SUMS` del mismo release y lo deja en `bin/hum`. Si algo
+falla (no hay release, no hay red, tu plataforma no tiene binario o el SHA-256 no
+coincide) **y hay `go` en el `PATH`**, lo compila desde el código. Si tampoco hay
+Go, la instalación termina con un mensaje que dice qué falta y cómo seguir. Un
+binario descargado que no pasa la comprobación nunca se instala.
+
+Plataformas con binario: Linux, macOS y Windows, en `amd64` y `arm64`. El
+`SHA256SUMS` viaja en el mismo release que los binarios, así que protege contra
+descargas corruptas, no contra alguien que controle el release.
+
+### Compilar a mano
+
 No necesita nada instalado para *usarlo*: es un único ejecutable estático.
 Para compilarlo hace falta Go (el `go.mod` pide `go 1.27.3`; con
 `GOTOOLCHAIN=auto`, el valor por defecto, Go descarga esa versión solo).
