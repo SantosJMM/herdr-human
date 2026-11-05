@@ -129,3 +129,39 @@ func chooseTwo(ctx context.Context, e palette.Entry, p palette.Prompter) ([]stri
 	v, ok, err := p.Choose(ctx, "workspace", []palette.Choice{{Value: "w1", Label: "alpha"}, {Value: "w2", Label: "beta"}})
 	return []string{"focus", v}, ok, err
 }
+
+func TestPaletteSearchLineHintsWhatToTypeUntilTheUserTypes(t *testing.T) {
+	m := startPalette(t, tui.PaletteOptions{Entries: []palette.Entry{described("a", "Alpha", "d")}})
+	if v := m.View(); !strings.Contains(v, "type to search commands and plugin actions") {
+		t.Errorf("an empty search says what to type:\n%s", v)
+	}
+	m, _ = palSend(t, m, typeRunes("al"))
+	if v := m.View(); strings.Contains(v, "type to search") {
+		t.Errorf("the hint goes away as soon as something is typed:\n%s", v)
+	}
+	m, _ = palSend(t, m, tea.KeyMsg{Type: tea.KeyCtrlU})
+	if v := m.View(); !strings.Contains(v, "type to search") {
+		t.Errorf("and comes back when the search is cleared:\n%s", v)
+	}
+}
+
+func TestPaletteHintDoesNotBreakTheWidthInANarrowPopup(t *testing.T) {
+	m := colorPalette(t, tui.PaletteOptions{Entries: manyEntries(3), Embedded: true}, 30)
+	for i, line := range strings.Split(m.View(), "\n") {
+		if got := ui.VisibleLen(line); got != 30 {
+			t.Errorf("line %d is %d cells wide, want 30: %q", i, got, line)
+		}
+	}
+}
+
+func TestPaletteQuestionListsHintToo(t *testing.T) {
+	in, scr, done := runPalette(t, tui.PaletteOptions{
+		Entries: []palette.Entry{nativeEntry("sw", "Workspace: Switch")},
+		Resolve: chooseTwo,
+	})
+	scr.waitFor(t, "Workspace: Switch")
+	_, _ = in.Write([]byte("\r"))
+	scr.waitFor(t, "type to filter")
+	_, _ = in.Write([]byte("\x1b"))
+	finish(t, done)
+}

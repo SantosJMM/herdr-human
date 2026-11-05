@@ -81,12 +81,12 @@ func (m PaletteModel) searchLine(b box) (left, right string) {
 	case palInput:
 		return "❯ " + withCursor(m.input.query, m.input.qpos, cursor), ""
 	case palChoose:
-		return "❯ " + withCursor(m.choices.query, m.choices.qpos, cursor),
+		return "❯ " + withCursor(m.choices.query, m.choices.qpos, cursor) + placeholder(m.choices.query, "type to filter", dim),
 			dim(fmt.Sprintf("%d/%d", len(m.choices.vis), len(m.choices.rows)))
 	case palBusy, palError:
 		return dim("❯ working…"), ""
 	}
-	left = "❯ " + withCursor(m.list.query, m.list.qpos, cursor)
+	left = "❯ " + withCursor(m.list.query, m.list.qpos, cursor) + placeholder(m.list.query, "type to search commands and plugin actions", dim)
 	count := fmt.Sprintf("%d/%d", len(m.list.vis), len(m.list.rows))
 	switch {
 	case m.loading:
@@ -95,6 +95,15 @@ func (m PaletteModel) searchLine(b box) (left, right string) {
 		return left, dim(count) + " " + m.st.Paint(ui.RoleBlocked, b.sep+" plugins unavailable")
 	}
 	return left, dim(count)
+}
+
+// placeholder es el texto tenue de ayuda que acompaña a una búsqueda vacía, como
+// el de las vistas nativas de herdr; con algo escrito no hay nada que mostrar.
+func placeholder(query, text string, dim func(string) string) string {
+	if query != "" {
+		return ""
+	}
+	return " " + dim(text)
 }
 
 // rowRender dibuja una línea del cuerpo dados los bordes izquierdo y derecho.
