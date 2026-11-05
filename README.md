@@ -95,6 +95,7 @@ El plugin `herdr-rename` sigue funcionando como respaldo; el selector ya renombr
 | `hum ask <quién> <mensaje…> [--timeout MS] [--lines N]` | Envía, espera a que el agente se asiente y imprime solo la respuesta en stdout (progreso y origen en stderr) |
 | `hum attention [--json] [--watch [--interval 5s] [--notify]]` | Quién te necesita: `blocked` y `done` primero, luego `working`; los `idle` solo se cuentan. `--watch` redibuja; `--notify` avisa una vez por transición a `blocked`/`done` |
 | `hum pick [--local] [--machine NOMBRE] [--full-names]` | Selector interactivo a pantalla completa (necesita una terminal); ver [Selector](#selector-hum-pick) |
+| `hum palette` | Paleta de comandos: busca con coincidencia difusa y ejecuta cualquier comando de herdr o acción de cualquier plugin (necesita una terminal; se abre con una tecla); ver [Paleta de comandos](#paleta-de-comandos-hum-palette) |
 | `hum new <tipo> [carpeta] [--name N] [--machine M] [--no-focus] [--timeout MS]` | Abre un tab, arranca un agente en él y lo nombra; imprime `maquina/pane`. Sin argumentos, en una terminal pregunta tipo, carpeta y nombre; ver [Crear un agente](#crear-un-agente-hum-new) |
 | `hum look <quién> [--lines N]` | Lee la salida reciente de un agente |
 | `hum name <quién> <nombre>` / `--clear` | Renombra agente **y** pane a la vez |
@@ -195,6 +196,76 @@ actual; si el refresco falla se avisa y se conservan las filas. Lo que imprime u
 agente se muestra sin caracteres de control, para que no pueda mover el cursor ni
 cambiar la terminal. `hum` sin argumentos abre el selector cuando la entrada y la
 salida son una terminal; con una tubería imprime la ayuda (código 0).
+
+### Paleta de comandos (`hum palette`)
+
+Una paleta estilo F1: una tecla abre un popup con **todos los comandos de herdr**
+(workspaces, tabs, panes, worktrees…) y **todas las acciones de todos los
+plugins instalados**, filtrados con coincidencia difusa mientras escribes. Elige
+uno, pulsa Enter y se ejecuta. Los comandos que necesitan un dato (un nombre, una
+carpeta, un workspace de destino) lo preguntan; **Esc** en una pregunta lo cancela
+todo. Si algo falla, el popup muestra el motivo en vez de cerrarse en silencio.
+
+Para abrirla, enlaza la acción `palette` de este plugin a una tecla en el
+`config.toml` de herdr y recarga la configuración:
+
+```toml
+[[keys.command]]
+key = "f1"
+type = "plugin_action"
+command = "herdr-human.palette"
+description = "command palette"
+```
+
+`type = "plugin_action"` importa: con un atajo de tipo `shell` que abra el pane a
+mano, la paleta pierde el contexto desde el que se abrió.
+
+| Tecla | Acción |
+|---|---|
+| escribir | filtra |
+| `↑` `↓` / `ctrl+p` `ctrl+n` | mueve la selección |
+| `RePág` / `AvPág`, `Inicio` / `Fin` | página o extremos de la lista |
+| `Enter` | ejecuta lo seleccionado |
+| `ctrl+w` / `ctrl+u` | borra la última palabra / toda la búsqueda |
+| `Esc` / `ctrl+c` | cierra sin ejecutar nada |
+
+Junto a cada entrada se ve su origen (el plugin, o `Herdr`) y la tecla que tiene
+enlazada en tu `config.toml`. Lo que usaste hace poco aparece primero.
+
+**Por qué abre rápido.** La paleta está pensada para abrir al instante, no solo
+para funcionar:
+
+- La acción y el pane arrancan `bin/hum` **directamente**, sin PowerShell ni `sh`
+  de por medio (en Windows, `powershell.exe` tarda cerca de un segundo en
+  arrancar y la versión original lo lanzaba dos veces). Medido en esta máquina
+  con la herramienta de procesos del sistema, desde que se dispara la acción
+  hasta que el proceso de la paleta existe: ~70–95 ms con `hum`, contra
+  ~2,3–2,4 s con la paleta original en Node.
+- **Carga perezosa.** El primer cuadro se dibuja con los comandos que van dentro
+  del binario y las acciones de plugins de la última vez (una caché en la
+  carpeta de estado del plugin). Las acciones actuales se piden a herdr en
+  segundo plano —una sola llamada, `plugin list --json`, en vez de dos— y se
+  incorporan cuando llegan; mientras tanto el encabezado dice `loading plugins…`
+  y, si herdr no responde, `plugins unavailable` sin perder lo ya dibujado.
+- Si no has movido la selección, esta sigue al mejor resultado cuando llegan las
+  acciones nuevas; si ya navegaste, se queda donde estaba.
+- Los workspaces, las pestañas y los agentes se piden a herdr **solo cuando un
+  comando los necesita** (por ejemplo, «Workspace: Next» o un selector), no al abrir.
+- El workspace, la pestaña y el pane de origen se leen de la variable
+  `HERDR_PLUGIN_CONTEXT_JSON` que herdr ya entrega al popup: no hace falta
+  preguntar `pane current` ni pasar variables entre la acción y el pane.
+
+Lo elegido no se ejecuta dentro del popup: mientras está abierto, herdr rechaza
+(`ui_busy`) todo lo que abra un pane o popup. Por eso `hum palette` lanza un
+proceso aparte (`hum palette run`) que espera a que el popup se cierre —
+reintentando mientras herdr siga ocupado— y entonces ejecuta el comando. Si
+falla, lo avisa con una notificación de herdr.
+
+Los comandos y las acciones del catálogo están en
+`internal/palette/commands.json` (31 comandos) y viajan dentro del binario. Los
+atajos se leen de `HERDR_CONFIG_PATH` o, si no está, del `config.toml` de herdr en
+la carpeta de configuración del sistema (`%APPDATA%\herdr` en Windows). Los
+recientes y la caché viven en `HERDR_PLUGIN_STATE_DIR`.
 
 ### Crear un agente (`hum new`)
 
@@ -394,6 +465,20 @@ significa «no comprobado» y no cuenta como correcto. Sale con 1 si algún paso
 falla. No imprime títulos, rutas ni nombres de agentes. Necesita herdr en marcha,
 por eso `check.ps1` no la ejecuta. Como cualquier `ls`, puede actualizar la caché
 de inventario de hum.
+
+## Agradecimientos
+
+La paleta de comandos (`hum palette`) nace del plugin
+**[herdr-command-palette](https://github.com/barnuri/herdr-command-palette)** de
+[barnuri](https://github.com/barnuri), con licencia MIT. Gracias por la idea, por
+el catálogo de comandos de herdr (`commands.json`) y por el diseño de la
+interacción —la búsqueda difusa, los recientes, los atajos mostrados junto a cada
+acción y el reparto entre la acción que abre el popup y el proceso que ejecuta lo
+elegido—, que aquí se han portado a Go.
+
+Si solo quieres la paleta, sin el resto de `hum`, el plugin original sigue siendo
+una gran opción: `herdr plugin install barnuri/herdr-command-palette`. El aviso de
+licencia completo está en [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Limitaciones conocidas (v0)
 
