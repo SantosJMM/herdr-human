@@ -27,29 +27,65 @@ func isSeparator(r rune) bool {
 // mayúsculas. Cada letra de la consulta se busca en la primera aparición tras la
 // anterior, así que el resultado es determinista. ok es false si no hay coincidencia.
 func Score(text, query string) (score int, ok bool) {
-	t := []rune(strings.ToLower(text))
+	t := lowerRunes(text)
+	at, ok := match(t, query)
+	if !ok {
+		return 0, false
+	}
 	prev := -1
-	for _, q := range strings.ToLower(query) {
-		if unicode.IsSpace(q) {
-			continue
-		}
-		at := indexRune(t, q, prev+1)
-		if at < 0 {
-			return 0, false
-		}
+	for _, i := range at {
 		score += baseMatchScore
-		if prev != -1 && at == prev+1 {
+		if prev != -1 && i == prev+1 {
 			score += consecutiveMatchBonus
 		}
-		if at == 0 || isSeparator(t[at-1]) {
+		if i == 0 || isSeparator(t[i-1]) {
 			score += wordStartBonus
 		}
 		// El hueco inicial también cuenta: un prefijo exacto gana a la misma
 		// coincidencia más adentro del texto.
-		score -= (at - prev - 1) * gapPenaltyPerChar
-		prev = at
+		score -= (i - prev - 1) * gapPenaltyPerChar
+		prev = i
 	}
 	return score, true
+}
+
+// Positions devuelve en qué letras de text (posiciones en runas) cae la
+// coincidencia de query, las mismas que puntúa Score, para poder resaltarlas. Es
+// nil si text no coincide; con la consulta vacía no hay nada que resaltar.
+func Positions(text, query string) []int {
+	at, ok := match(lowerRunes(text), query)
+	if !ok {
+		return nil
+	}
+	return at
+}
+
+// lowerRunes pasa a minúsculas letra a letra, de modo que las posiciones sigan
+// siendo las del texto original (strings.ToLower puede cambiar el largo).
+func lowerRunes(s string) []rune {
+	rs := []rune(s)
+	for i, r := range rs {
+		rs[i] = unicode.ToLower(r)
+	}
+	return rs
+}
+
+// match busca cada letra de la consulta (sin espacios) en la primera aparición
+// tras la anterior y devuelve sus posiciones en t, que ya va en minúsculas.
+func match(t []rune, query string) (at []int, ok bool) {
+	prev := -1
+	for _, q := range lowerRunes(query) {
+		if unicode.IsSpace(q) {
+			continue
+		}
+		i := indexRune(t, q, prev+1)
+		if i < 0 {
+			return nil, false
+		}
+		at = append(at, i)
+		prev = i
+	}
+	return at, true
 }
 
 func indexRune(rs []rune, r rune, from int) int {

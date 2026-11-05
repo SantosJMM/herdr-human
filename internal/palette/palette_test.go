@@ -503,3 +503,38 @@ func TestShippedCatalogOnlyDrivesKnownHerdrNouns(t *testing.T) {
 		}
 	}
 }
+
+// --- posiciones de la coincidencia (para resaltar) ---
+
+func TestPositionsAreTheLettersScoreMatches(t *testing.T) {
+	for _, tt := range []struct {
+		text, query string
+		want        []int
+	}{
+		{"Tab: Close current", "clo", []int{5, 6, 7}},
+		{"Ping thing", "pg", []int{0, 3}},
+		{"Ping thing", "P G", []int{0, 3}},
+		{"Ñandú Ñu", "ñu", []int{0, 7}}, // la ú no es una u
+		{"abc", "", nil},
+		{"abc", "zz", nil},
+		{"abc", "ca", nil},
+	} {
+		got := Positions(tt.text, tt.query)
+		if !slices.Equal(got, tt.want) {
+			t.Errorf("Positions(%q, %q) = %v, want %v", tt.text, tt.query, got, tt.want)
+		}
+		_, ok := Score(tt.text, tt.query)
+		if tt.query != "" && ok != (got != nil) {
+			t.Errorf("(%q, %q): Score ok=%v but Positions=%v; the highlight must agree with the filter", tt.text, tt.query, ok, got)
+		}
+	}
+}
+
+func TestSearchOffsetsPointAtSourceAndTitle(t *testing.T) {
+	e := Entry{Source: "Ñoño plug", Title: "Título", Description: "d", ID: "i"}
+	runes := []rune(e.SearchText())
+	so, to := e.SearchOffsets()
+	if string(runes[so:so+len([]rune(e.Source))]) != e.Source || string(runes[to:to+len([]rune(e.Title))]) != e.Title {
+		t.Errorf("offsets %d,%d do not land on the source and title of %q", so, to, e.SearchText())
+	}
+}

@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/SantosJMM/herdr-human/internal/palette"
 	"github.com/SantosJMM/herdr-human/internal/ui"
 )
 
 const (
 	// palChrome son las líneas que no son filas: borde, búsqueda, 2 separadores,
-	// pie y borde.
-	palChrome = 6
+	// descripción, teclas y borde.
+	palChrome = 7
 	// Anchos máximos de las columnas de origen y atajo.
 	palMaxSource = 22
 	palMaxChord  = 18
@@ -45,8 +46,29 @@ func (m PaletteModel) View() string {
 		out = append(out, line(""))
 	}
 
-	out = append(out, rule(b.lt, b.rt), line(dim(m.keysText())), rule(b.bl, b.br))
+	out = append(out, rule(b.lt, b.rt), line(dim(m.describeSelected())), line(dim(m.keysText())), rule(b.bl, b.br))
 	return strings.Join(out, "\n")
+}
+
+// describeSelected es la línea de ayuda de la entrada seleccionada: su
+// descripción, o, si la acción de un plugin no trae ninguna, de qué plugin viene
+// y su id (que es lo que se enlaza a una tecla en config.toml).
+func (m PaletteModel) describeSelected() string {
+	if m.mode != palList {
+		return ""
+	}
+	i, ok := m.list.current()
+	if !ok {
+		return ""
+	}
+	e := m.entries[i]
+	switch {
+	case e.Description != "":
+		return e.Description
+	case e.Kind == palette.KindPlugin:
+		return "Plugin action " + e.ID
+	}
+	return ""
 }
 
 // searchLine es la barra de búsqueda o de entrada de texto, con el contador.
@@ -119,7 +141,7 @@ func (m PaletteModel) bodyLines(cw int, b box) []rowRender {
 	for i, idx := range window {
 		row, selected := p.rows[idx], p.top+i == p.sel
 		lines = append(lines, func(l, r string) string {
-			return l + m.rowContent(row, selected, cw, sw, kw, b) + r
+			return l + m.rowContent(row, p.query, selected, cw, sw, kw, b) + r
 		})
 	}
 	return lines
@@ -127,16 +149,24 @@ func (m PaletteModel) bodyLines(cw int, b box) []rowRender {
 
 // rowContent dibuja una fila. La seleccionada ocupa todo el ancho: con color usa
 // el fondo del tema y sin color lleva una marca al principio.
-func (m PaletteModel) rowContent(row prow, selected bool, cw, sw, kw int, b box) string {
+func (m PaletteModel) rowContent(row prow, query string, selected bool, cw, sw, kw int, b box) string {
 	g := m.st.Glyphs()
+	// Las letras resaltadas son las mismas que puntúa el filtro, calculadas sobre
+	// el texto de búsqueda y llevadas de vuelta a la columna donde se dibujan.
+	hit := map[int]bool{}
+	for _, at := range palette.Positions(row.search, query) {
+		hit[at] = true
+	}
+	title := m.markHits(row.title, row.titleOff, hit, func(s string) string { return s })
 	right := ""
 	if sw > 0 || kw > 0 {
-		right = m.st.Paint(ui.RoleDim, ui.PadRight(ui.Truncate(row.source, sw, g.Ellipsis), sw)) + "  " +
+		source := m.markHits(row.source, row.sourceOff, hit, func(s string) string { return m.st.Paint(ui.RoleDim, s) })
+		right = ui.PadRight(ui.Truncate(source, sw, g.Ellipsis), sw) + "  " +
 			m.st.Paint(ui.RoleAccent, ui.PadRight(ui.Truncate(row.chord, kw, g.Ellipsis), kw))
 	}
-	content := ui.Truncate(row.title, cw, g.Ellipsis)
+	content := ui.Truncate(title, cw, g.Ellipsis)
 	if right != "" {
-		content = ui.FitRow(cw, row.title, right, g.Ellipsis)
+		content = ui.FitRow(cw, title, right, g.Ellipsis)
 	}
 	content = ui.PadRight(content, cw)
 	if !selected {
@@ -165,4 +195,28 @@ func (m PaletteModel) keysText() string {
 		keys = []string{up + " select", "enter run", "ctrl+u clear", "esc close"}
 	}
 	return strings.Join(keys, sep)
+}
+
+// markHits pinta text con base y resalta (negrita y color de acento) las letras
+// cuya posición, sumada a off, está en hit. Con off < 0 la columna no forma parte
+// del texto de búsqueda y no se resalta nada.
+func (m PaletteModel) markHits(text string, off int, hit map[int]bool, base func(string) string) string {
+	if off < 0 || len(hit) == 0 || text == "" {
+		return base(text)
+	}
+	runes := []rune(text)
+	var sb strings.Builder
+	for i := 0; i < len(runes); {
+		j := i
+		for j < len(runes) && hit[off+j] == hit[off+i] {
+			j++
+		}
+		if run := string(runes[i:j]); hit[off+i] {
+			sb.WriteString(m.st.Bold(m.st.Paint(ui.RoleAccent, run)))
+		} else {
+			sb.WriteString(base(run))
+		}
+		i = j
+	}
+	return sb.String()
 }

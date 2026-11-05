@@ -239,6 +239,13 @@ mano, la paleta pierde el contexto desde el que se abrió.
 Junto a cada entrada se ve su origen (el plugin, o `Herdr`) y la tecla que tiene
 enlazada en tu `config.toml`. Lo que usaste hace poco aparece primero.
 
+Al escribir, las letras que coinciden se resaltan en el título y en el origen
+(son exactamente las que usa el filtro, así que lo resaltado explica por qué sale
+esa fila). Como la búsqueda también mira la descripción y el id, una fila puede
+aparecer sin letras resaltadas en el título. La línea de ayuda del pie describe la
+entrada seleccionada; si es una acción de plugin sin descripción, muestra su id
+(`Plugin action plugin.accion`), que es lo que se enlaza a una tecla.
+
 **Por qué abre rápido.** La paleta está pensada para abrir al instante, no solo
 para funcionar:
 

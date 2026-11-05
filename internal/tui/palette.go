@@ -112,7 +112,12 @@ func (b *palBridge) Choose(ctx context.Context, prompt string, choices []palette
 }
 
 // prow es una fila de la lista: lo que se ve y el texto sobre el que se busca.
-type prow struct{ title, source, chord, search string }
+// sourceOff y titleOff dicen dónde empiezan el origen y el título dentro de
+// search (en runas; -1 si esa columna no está en el texto de búsqueda).
+type prow struct {
+	title, source, chord, search string
+	sourceOff, titleOff          int
+}
 
 // picker es una lista con búsqueda, selección y desplazamiento.
 type picker struct {
@@ -226,7 +231,8 @@ func (m *PaletteModel) setEntries(entries []palette.Entry, keep string) {
 	m.entries = entries
 	m.list.rows = make([]prow, len(entries))
 	for i, e := range entries {
-		m.list.rows[i] = prow{title: e.Title, source: e.Source, chord: e.Chord, search: e.SearchText()}
+		so, to := e.SearchOffsets()
+		m.list.rows[i] = prow{title: e.Title, source: e.Source, chord: e.Chord, search: e.SearchText(), sourceOff: so, titleOff: to}
 	}
 	m.list.refilter(keep, func(i int) string { return m.entries[i].ID })
 }
@@ -309,7 +315,7 @@ func (m PaletteModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.choices = picker{rows: make([]prow, len(msg.choices))}
 		for i, c := range msg.choices {
 			m.values[i] = c.Value
-			m.choices.rows[i] = prow{title: c.Label, search: c.Label}
+			m.choices.rows[i] = prow{title: c.Label, search: c.Label, sourceOff: -1}
 		}
 		m.choices.refilter("", nil)
 		return m, nil

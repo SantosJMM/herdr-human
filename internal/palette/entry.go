@@ -6,7 +6,10 @@
 // (MIT, © 2026 barnuri); ver THIRD_PARTY_NOTICES.md.
 package palette
 
-import "strings"
+import (
+	"strings"
+	"unicode/utf8"
+)
 
 // Kind distingue de dónde viene una entrada de la paleta.
 type Kind int
@@ -59,6 +62,13 @@ type Entry struct {
 // SearchText es el texto sobre el que busca el filtro difuso.
 func (e Entry) SearchText() string {
 	return strings.Join([]string{e.Source, e.Title, e.Description, e.ID}, " ")
+}
+
+// SearchOffsets dice dónde empiezan, en runas, el origen y el título dentro de
+// SearchText. Sirven para llevar las coincidencias de la búsqueda de vuelta a
+// las columnas que se dibujan.
+func (e Entry) SearchOffsets() (source, title int) {
+	return 0, utf8.RuneCountInString(e.Source) + 1
 }
 
 // RequiredContext lista las claves de contexto que el comando necesita.
