@@ -103,6 +103,7 @@ El plugin `herdr-rename` sigue funcionando como respaldo; el selector ya renombr
 | `hum attention [--json] [--watch [--interval 5s] [--notify]]` | Quién te necesita: `blocked` y `done` primero, luego `working`; los `idle` solo se cuentan. `--watch` redibuja; `--notify` avisa una vez por transición a `blocked`/`done` |
 | `hum pick [--local] [--machine NOMBRE] [--full-names]` | Selector interactivo a pantalla completa (necesita una terminal); ver [Selector](#selector-hum-pick) |
 | `hum palette` | Paleta de comandos: busca con coincidencia difusa y ejecuta cualquier comando de herdr o acción de cualquier plugin (necesita una terminal; se abre con una tecla); ver [Paleta de comandos](#paleta-de-comandos-hum-palette) |
+| `hum keys ls [--all]` / `set <entrada> <tecla> [--force]` / `rm <entrada>` | Atajos de teclado de las entradas de la paleta en el `config.toml` de herdr, con validación previa y respaldo; ver [Asignar o cambiar atajos](#asignar-o-cambiar-atajos-de-teclado-ctrlk) |
 | `hum trace on\|off\|show\|clear` | Traza de tiempos de los popups, para medir cuánto tardan en dibujar el primer cuadro; ver [Paleta de comandos](#paleta-de-comandos-hum-palette) |
 | `hum new <tipo> [carpeta] [--name N] [--machine M] [--no-focus] [--timeout MS]` | Abre un tab, arranca un agente en él y lo nombra; imprime `maquina/pane`. Sin argumentos, en una terminal pregunta tipo, carpeta y nombre; ver [Crear un agente](#crear-un-agente-hum-new) |
 | `hum look <quién> [--lines N]` | Lee la salida reciente de un agente |
@@ -248,6 +249,66 @@ esa fila). Como la búsqueda también mira la descripción y el id, una fila pue
 aparecer sin letras resaltadas en el título. La línea de ayuda del pie describe la
 entrada seleccionada; si es una acción de plugin sin descripción, muestra su id
 (`Plugin action plugin.accion`), que es lo que se enlaza a una tecla.
+
+#### Asignar o cambiar atajos de teclado (`ctrl+k`)
+
+Con una fila seleccionada, **`ctrl+k`** abre la pantalla de atajo de esa entrada:
+muestra el que tiene ahora y espera que **pulses la combinación** que quieres. Se
+escribe como en el `config.toml` de herdr (`ctrl+alt+k`, `alt+left`, `f5`,
+`alt+minus`…). Dentro de esa pantalla:
+
+| Tecla | Qué hace |
+|---|---|
+| la combinación | se captura y se valida al instante |
+| `tab` | pone o quita el prefijo de herdr (`prefix+…`); sirve para teclas sueltas, que sin prefijo se comerían lo que escribes |
+| `ctrl+t` | escribir la combinación a mano, para lo que tu terminal no distingue (`ctrl+h`, `prefix+enter`…) |
+| `delete` | quitar el atajo actual (pide confirmación) |
+| `enter` | guardar |
+| `esc` | cerrar la pantalla sin cambiar nada (un segundo `esc` cierra la paleta) |
+
+Se puede enlazar:
+
+- **las acciones de cualquier plugin** (las de `hum`, `herdr-rename`, `reviewr`…),
+  que se guardan como `type = "plugin_action"` con su id calificado;
+- **los comandos de herdr que no piden nada**, por ejemplo *Config: Reload* o
+  *Tab: Close current*, que se guardan como `type = "shell"` con la sintaxis de la
+  shell del sistema (`cmd.exe` en Windows, `sh` en el resto) y los ids que herdr da
+  a los comandos de ese tipo (`HERDR_ACTIVE_TAB_ID`…). Los que preguntan algo
+  (carpeta, nombre, elegir uno) o usan un valor calculado no se pueden enlazar, y la
+  paleta lo dice en vez de abrir la pantalla.
+
+Cada cambio al `config.toml` se hace con red de seguridad:
+
+1. Se valida **en una copia**, antes de tocar tu archivo, con `herdr config check`
+   (se compara con el resultado del archivo tal como estaba: los problemas que ya
+   tuviera no bloquean un cambio ajeno). Si herdr lo rechaza, no se escribe nada.
+2. Se guarda un respaldo, `config.toml.bak-hum-AAAAMMDD`: el primer cambio de cada
+   día; los siguientes del mismo día no crean más.
+3. Se escribe de una vez (archivo temporal y renombrado) y **solo se toca lo
+   necesario**: cambiar la tecla de un bloque cambia esa línea y conserva sus
+   comentarios y su alineación; un atajo nuevo es un bloque al final; quitarlo borra
+   su bloque. Los finales de línea (`LF` o `CRLF`) se conservan.
+4. Se pide a herdr que recargue la configuración (`herdr server reload-config`).
+
+**Conflictos.** Una tecla que ya usa otro `[[keys.command]]`, una acción de `[keys]`
+o un modificador de `[keys.indexed]` (`alt` con `1..9`) **se rechaza**, nombrando
+quién la usa: herdr desactivaría uno de los dos. Un atajo **por defecto de herdr**
+(`prefix+n`, `prefix+g`, `prefix+x`…) solo **avisa**, y hay que pulsar `enter` por
+segunda vez: `herdr config check` no lo detecta y no se sabe cuál de los dos gana. La
+lista de defaults es una copia de la documentación de herdr v0.9.5; si herdr la
+cambia, se queda atrás.
+
+Lo mismo está en la línea de comandos, por si la terminal no entrega una
+combinación o para automatizarlo:
+
+```powershell
+hum keys ls [--all]                 # los atajos de la paleta (--all: todo lo enlazable, con su id)
+hum keys set <entrada> <tecla>      # asigna o cambia; --force para un default de herdr
+hum keys rm <entrada>               # quita el atajo
+```
+
+`<entrada>` es el id que muestra `hum keys ls --all` (`herdr-human.pick-windows`,
+`tab.close`…); un id parcial sugiere los parecidos.
 
 **Dentro de un popup de herdr (`--embedded`).** Un popup de herdr ya dibuja su
 propio marco con el título del pane; si la TUI dibuja otro encima, queda una caja

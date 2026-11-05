@@ -41,6 +41,9 @@ type PaletteOptions struct {
 	// Embedded indica que la paleta corre dentro de un popup de herdr, que ya
 	// dibuja el marco y el título: no se dibuja un segundo marco encima.
 	Embedded bool
+	// Keys permite asignar, cambiar y quitar atajos de teclado con ctrl+k sobre la
+	// fila seleccionada. Nulo desactiva la función.
+	Keys KeyService
 }
 
 // chrome son las líneas que no son filas de la lista: con marco propio, borde,
@@ -91,6 +94,7 @@ const (
 	palChoose
 	palBusy
 	palError
+	palCapture // asignando un atajo de teclado a la fila seleccionada
 )
 
 // Mensajes internos de la paleta.
@@ -249,6 +253,11 @@ type PaletteModel struct {
 	inputReply  chan<- inputReply
 	chooseReply chan<- chooseReply
 
+	// cap es la pantalla de asignar un atajo; notice, el resultado de la última
+	// asignación, que se muestra en la línea de ayuda hasta la siguiente tecla.
+	cap    capture
+	notice string
+
 	loading    bool
 	pluginsErr error
 	width      int
@@ -373,6 +382,9 @@ func (m PaletteModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, tea.Quit
 
+	case keyDoneMsg:
+		return m.onKeyDone(msg), nil
+
 	case tea.MouseMsg:
 		return m.onMouse(msg), nil
 
@@ -399,6 +411,17 @@ func (m PaletteModel) onMouse(msg tea.MouseMsg) PaletteModel {
 }
 
 func (m PaletteModel) onKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// En la pantalla de atajo, Esc y Ctrl+C solo cierran esa pantalla (y todas las
+	// teclas, salvo las que la manejan, son la combinación a capturar).
+	if m.mode == palCapture {
+		return m.onCaptureKey(msg)
+	}
+	if m.mode == palList {
+		m.notice = "" // el resultado de la asignación anterior dura hasta la tecla siguiente
+		if msg.Type == tea.KeyCtrlK && m.opts.Keys != nil {
+			return m.startCapture(), nil
+		}
+	}
 	if msg.Type == tea.KeyCtrlC || msg.Type == tea.KeyEsc {
 		return m.cancel()
 	}

@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/SantosJMM/herdr-human/internal/herdr"
@@ -105,12 +106,27 @@ func (a *app) paletteUI(ctx context.Context, embedded bool) error {
 	var (
 		dir     = palette.StateDir(a.getenv)
 		origin  = palette.OriginFromEnv(a.getenv)
-		chords  = palette.LoadChords(a.getenv)
 		recents = palette.LoadRecents(dir)
 		self    = a.pluginID() + "." + paletteID
+		latest  atomic.Pointer[[]palette.Entry] // las últimas entradas, para nombrar lo que choca
 	)
+	// Los atajos se releen en cada fusión: así lo que se asigna desde la paleta no
+	// se pierde cuando llegan las acciones de los plugins.
 	merge := func(plugins []palette.Entry) []palette.Entry {
-		return palette.Available(palette.Merge(chords, recents, native, plugins), origin)
+		all := palette.Available(palette.Merge(a.chords(native), recents, native, plugins), origin)
+		latest.Store(&all)
+		return all
+	}
+
+	// Asignar atajos exige poder validarlos con herdr y saber dónde está su archivo.
+	var keys tui.KeyService
+	if a.env.CheckConfig != nil && palette.ConfigPath(a.getenv) != "" {
+		keys = a.keyService(func() []palette.Entry {
+			if p := latest.Load(); p != nil {
+				return *p
+			}
+			return nil
+		})
 	}
 
 	// El primer cuadro no espera a herdr: lo embebido y la caché están en disco.
@@ -141,6 +157,7 @@ func (a *app) paletteUI(ctx context.Context, embedded bool) error {
 		Trace:   a.env.Trace.Mark,
 		// Dentro de un popup de herdr no se dibuja un segundo marco.
 		Embedded: embedded,
+		Keys:     keys,
 		Resolve: func(ctx context.Context, e palette.Entry, p palette.Prompter) ([]string, bool, error) {
 			return palette.Resolve(ctx, e, vals, p)
 		},

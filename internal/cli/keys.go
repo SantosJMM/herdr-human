@@ -301,3 +301,19 @@ func (a *app) keysRemove(ctx context.Context, args []string) error {
 	}
 	return nil
 }
+
+// chords devuelve, por id de entrada, el atajo que el config.toml le da: las
+// acciones de plugins (que se enlazan por su id) y los comandos de herdr de la
+// paleta (que se enlazan como un comando de shell).
+func (a *app) chords(native []palette.Entry) map[string]string {
+	chords := palette.LoadChords(a.getenv)
+	if chords == nil {
+		chords = map[string]string{}
+	}
+	if cfg, err := a.keyStore().Read(); err == nil {
+		for id, key := range keybind.Chords(native, cfg, a.env.GOOS) {
+			chords[id] = key
+		}
+	}
+	return chords
+}

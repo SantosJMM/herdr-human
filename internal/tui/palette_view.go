@@ -59,6 +59,11 @@ func (m PaletteModel) describeSelected() string {
 	if m.mode != palList {
 		return ""
 	}
+	// El resultado de la última asignación de atajo ocupa esta línea hasta la
+	// siguiente tecla.
+	if m.notice != "" {
+		return m.notice
+	}
 	i, ok := m.list.current()
 	if !ok {
 		return ""
@@ -85,6 +90,8 @@ func (m PaletteModel) searchLine(b box) (left, right string) {
 			dim(fmt.Sprintf("%d/%d", len(m.choices.vis), len(m.choices.rows)))
 	case palBusy, palError:
 		return dim("❯ working…"), ""
+	case palCapture:
+		return dim("❯ shortcut"), ""
 	}
 	left = "❯ " + withCursor(m.list.query, m.list.qpos, cursor) + placeholder(m.list.query, "type to search commands and plugin actions", dim)
 	count := fmt.Sprintf("%d/%d", len(m.list.vis), len(m.list.rows))
@@ -116,6 +123,8 @@ func (m PaletteModel) bodyLines(cw int, b box) []rowRender {
 		}
 	}
 	switch m.mode {
+	case palCapture:
+		return m.captureLines(plain)
 	case palInput:
 		if m.status != "" {
 			return []rowRender{plain(m.st.Paint(ui.RoleBlocked, m.status))}
@@ -196,6 +205,8 @@ func (m PaletteModel) keysText() string {
 	}
 	var keys []string
 	switch m.mode {
+	case palCapture:
+		return m.captureKeysText(sep)
 	case palInput:
 		keys = []string{"enter confirm", "ctrl+u clear", "esc cancel"}
 	case palBusy:
@@ -204,6 +215,10 @@ func (m PaletteModel) keysText() string {
 		keys = []string{"any key: close"}
 	default:
 		keys = []string{up + " select", "enter run", "ctrl+u clear", "esc close"}
+		if m.opts.Keys != nil {
+			// El marcador de la traza busca «enter run» en cada cuadro: sigue ahí.
+			keys = []string{up + " select", "enter run", "ctrl+k shortcut", "ctrl+u clear", "esc close"}
+		}
 	}
 	return strings.Join(keys, sep)
 }
