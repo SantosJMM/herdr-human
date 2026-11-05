@@ -64,11 +64,19 @@ type Recents struct{ ids []string }
 
 // LoadRecents lee los recientes; cualquier fallo se traduce en "sin recientes".
 func LoadRecents(dir string) Recents {
-	var ids []string
-	if !readState(dir, recentsFile, &ids) {
+	// Se lee como lista de valores cualquiera para conservar los ids válidos de un
+	// archivo con entradas ajenas, en vez de perder todo el historial por una.
+	var raw []any
+	if !readState(dir, recentsFile, &raw) {
 		return Recents{}
 	}
-	return Recents{ids: slices.DeleteFunc(ids, func(s string) bool { return s == "" })}
+	var ids []string
+	for _, v := range raw {
+		if s, ok := v.(string); ok && s != "" {
+			ids = append(ids, s)
+		}
+	}
+	return Recents{ids: ids}
 }
 
 // Rank devuelve la posición de id; lo que nunca se usó va después de todo lo reciente.

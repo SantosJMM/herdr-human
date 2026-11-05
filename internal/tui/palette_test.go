@@ -325,3 +325,65 @@ func TestPaletteTopResultFollowsTheBestMatchWhenPluginsArrive(t *testing.T) {
 		t.Errorf("an untouched selection follows the best match, got %q", got)
 	}
 }
+
+// --- paridad con las pruebas del plugin original ---
+
+func TestPaletteCtrlHActsAsBackspace(t *testing.T) {
+	// ConPTY y Windows Terminal pueden mandar BS (Ctrl+H) para Backspace.
+	m := startPalette(t, tui.PaletteOptions{Entries: []palette.Entry{nativeEntry("a", "Alpha"), nativeEntry("b", "Beta")}})
+	m, _ = palSend(t, m, typeRunes("alz"))
+	if !strings.Contains(m.View(), "0/2") {
+		t.Fatalf("setup: the query should match nothing:\n%s", m.View())
+	}
+	m, _ = palSend(t, m, tea.KeyMsg{Type: tea.KeyCtrlH})
+	if !strings.Contains(m.View(), "1/2") {
+		t.Errorf("Ctrl+H deletes the last letter and restores the list:\n%s", m.View())
+	}
+	m, _ = palSend(t, m, tea.KeyMsg{Type: tea.KeyBackspace})
+	if !strings.Contains(m.View(), "1/2") && !strings.Contains(m.View(), "2/2") {
+		t.Errorf("DEL still works:\n%s", m.View())
+	}
+}
+
+func inputEntry(prompt, initial string, required bool) tui.PaletteOptions {
+	return tui.PaletteOptions{
+		Entries: []palette.Entry{nativeEntry("n", "Ask")},
+		Resolve: func(ctx context.Context, e palette.Entry, p palette.Prompter) ([]string, bool, error) {
+			text, ok, err := p.Input(ctx, palette.InputSpec{Prompt: prompt, Initial: initial, Required: required})
+			return []string{text}, ok, err
+		},
+	}
+}
+
+func TestRunPaletteInputKeepsItsDefaultWhenConfirmedUntouched(t *testing.T) {
+	in, scr, done := runPalette(t, inputEntry("folder", `C:\proj`, true))
+	scr.waitFor(t, "Ask")
+	_, _ = in.Write([]byte("\r"))
+	scr.waitFor(t, "folder")
+	_, _ = in.Write([]byte("\r"))
+	if r := finish(t, done); !r.res.Chosen || r.res.Argv[0] != `C:\proj` {
+		t.Errorf("got %+v", r.res)
+	}
+}
+
+func TestRunPaletteOptionalInputMayConfirmEmpty(t *testing.T) {
+	in, scr, done := runPalette(t, inputEntry("note", "", false))
+	scr.waitFor(t, "Ask")
+	_, _ = in.Write([]byte("\r"))
+	scr.waitFor(t, "note")
+	_, _ = in.Write([]byte("\r"))
+	if r := finish(t, done); !r.res.Chosen || r.res.Argv[0] != "" {
+		t.Errorf("an optional value can be empty, got %+v", r.res)
+	}
+}
+
+func TestRunPaletteArrowKeysAreNotTypedIntoAnInput(t *testing.T) {
+	in, scr, done := runPalette(t, inputEntry("name", "", true))
+	scr.waitFor(t, "Ask")
+	_, _ = in.Write([]byte("\r"))
+	scr.waitFor(t, "name")
+	_, _ = in.Write([]byte("\x1b[A\x1b[B\x1bOAx\r")) // flechas en CSI y SS3, luego "x"
+	if r := finish(t, done); !r.res.Chosen || r.res.Argv[0] != "x" {
+		t.Errorf("arrows must not leak their letters into the text, got %+v", r.res)
+	}
+}

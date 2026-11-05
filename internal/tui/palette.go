@@ -165,6 +165,12 @@ func (p *picker) current() (int, bool) {
 
 // edit aplica una tecla de edición a la consulta. Devuelve true si cambió.
 func (p *picker) edit(msg tea.KeyMsg) bool {
+	// Unix manda DEL para Backspace; ConPTY y Windows Terminal pueden mandar BS
+	// (Ctrl+H) para la misma tecla, y Bubble Tea lo lee como Ctrl+H. El plugin
+	// original ya distinguía este caso: sin él, Backspace no borra en esas terminales.
+	if msg.Type == tea.KeyCtrlH {
+		msg.Type = tea.KeyBackspace
+	}
 	if msg.Type == tea.KeyCtrlW {
 		r := []rune(strings.TrimRight(string([]rune(p.query)[:p.qpos]), " "))
 		for len(r) > 0 && r[len(r)-1] != ' ' {

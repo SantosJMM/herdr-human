@@ -466,3 +466,40 @@ func TestHerdrListerParsesTheRealShapes(t *testing.T) {
 		t.Fatalf("%v %v %v %+v %+v %+v", err1, err2, err3, ws, tabs, ags)
 	}
 }
+
+// --- paridad con las pruebas del plugin original ---
+
+func TestRecentsKeepTheValidIDsOfAMixedFile(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, recentsFile), []byte(`["a", 5, null, "", "b", {"x":1}]`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got := LoadRecents(dir)
+	if got.Rank("a") != 0 || got.Rank("b") != 1 {
+		t.Errorf("one bad entry must not cost the whole history, got a=%d b=%d", got.Rank("a"), got.Rank("b"))
+	}
+}
+
+func TestInputDefaultMustBeAStaticContextKey(t *testing.T) {
+	data := `{"schema_version":1,"commands":[
+	  {"id":"computed","title":"T","command":["x"],"arguments":[{"source":"input","prompt":"p","default_context":"next_tab_id"}]},
+	  {"id":"static","title":"T","command":["x"],"arguments":[{"source":"input","prompt":"p","default_context":"cwd"}]}
+	]}`
+	entries, err := parseCatalog([]byte(data))
+	if err != nil || len(entries) != 1 || entries[0].ID != "static" {
+		t.Errorf("a computed key cannot seed an input: %v %v", ids(entries), err)
+	}
+}
+
+func TestShippedCatalogOnlyDrivesKnownHerdrNouns(t *testing.T) {
+	entries, err := Native()
+	if err != nil {
+		t.Fatal(err)
+	}
+	nouns := []string{"workspace", "tab", "pane", "agent", "server"}
+	for _, e := range entries {
+		if !slices.Contains(nouns, e.Command[0]) {
+			t.Errorf("unexpected noun in %s: %s", e.ID, e.Command[0])
+		}
+	}
+}
