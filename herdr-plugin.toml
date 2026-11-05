@@ -238,3 +238,23 @@ command = [
   "-c",
   "\"$HERDR_PLUGIN_ROOT/bin/hum\" attention; printf '\\nPress enter to close'; read -r _"
 ]
+
+# Paleta de comandos. A diferencia de las demás, esta acción y su pane arrancan
+# el binario directamente (herdr completa el .exe en Windows y usa la raíz del
+# plugin como carpeta de trabajo): sin PowerShell ni sh de por medio, que en
+# Windows cuesta cerca de un segundo por cada arranque. Es la misma definición
+# para todas las plataformas. Se enlaza con type = "plugin_action" y el comando
+# "herdr-human.palette".
+[[actions]]
+id = "palette"
+title = "Open command palette"
+contexts = ["workspace", "tab", "pane"]
+command = ["bin/hum", "palette", "open"]
+
+[[panes]]
+id = "palette"
+title = "Command palette"
+placement = "popup"
+width = "70%"
+height = "60%"
+command = ["bin/hum", "palette"]

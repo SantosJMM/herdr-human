@@ -79,6 +79,10 @@ type Env struct {
 	Now      func() time.Time
 	// ConfigDir es la carpeta donde se guardan los alias; vacía los desactiva.
 	ConfigDir string
+	// Detach lanza este mismo programa con esos argumentos como un proceso
+	// independiente que sigue vivo cuando este termina; nulo si la plataforma no
+	// lo permite. La paleta lo usa para ejecutar lo elegido tras cerrar su popup.
+	Detach func(args []string) error
 }
 
 const usageText = `hum - friendly commands for herdr
@@ -103,6 +107,10 @@ Usage:
                                                 terminal). "hum" alone does the same
                                                 in a terminal and prints this help
                                                 otherwise
+  hum palette                                    command palette: fuzzy-search and run every
+                                                herdr command and every action of every
+                                                plugin (needs a terminal; bind the
+                                                "palette" action of this plugin to a key)
   hum new <kind> [folder] [--name NAME] [--machine NAME] [--no-focus] [--timeout MS]
                                                 open a tab, start an agent in it and
                                                 name it; prints machine/pane. Without
@@ -232,6 +240,8 @@ func (a *app) dispatch(ctx context.Context, args []string) error {
 		return a.selector(ctx, rest)
 	case "new":
 		return a.newAgent(ctx, rest)
+	case "palette":
+		return a.palette(ctx, rest)
 	case "completion":
 		return a.completion(ctx, rest)
 	case "__complete":

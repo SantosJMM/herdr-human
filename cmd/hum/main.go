@@ -34,6 +34,7 @@ func main() {
 		Getwd:         os.Getwd,
 		CacheDir:      cacheDir(),
 		ConfigDir:     configDir(os.Getenv),
+		Detach:        detach,
 	}
 	if terminal {
 		ui.EnableVT(os.Stdout)

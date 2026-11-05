@@ -60,6 +60,11 @@ func TestEveryActionOpensAPaneThatExistsForItsPlatform(t *testing.T) {
 			continue
 		}
 		count++
+		if strings.Contains(b.text, `"bin/hum"`) {
+			// Acción directa (la paleta): no abre el pane con --entrypoint, lo hace
+			// el propio hum; su pane se comprueba en TestPaletteStartsWithoutAnInterpreter.
+			continue
+		}
 		m := entry.FindStringSubmatch(b.text)
 		if m == nil {
 			t.Errorf("action %q has no --entrypoint", b.id)
@@ -127,6 +132,51 @@ func TestExistingEntriesAreKept(t *testing.T) {
 	for _, id := range []string{"overview-windows", "overview-unix", "machines-windows", "machines-unix"} {
 		if find(blocks, "actions", id) == nil || find(blocks, "panes", id) == nil {
 			t.Errorf("%s was removed from the manifest; configured shortcuts depend on it", id)
+		}
+	}
+}
+
+// El motivo de existir de este test: powershell.exe tarda cerca de un segundo en
+// arrancar y la paleta lo lanzaba dos veces (acción y pane) antes de dibujar.
+// Si alguien vuelve a poner un intérprete delante, la paleta vuelve a ser lenta.
+func TestPaletteStartsWithoutAnInterpreter(t *testing.T) {
+	t.Parallel()
+
+	blocks := readManifest(t)
+	for _, tt := range []struct {
+		kind, want string
+	}{
+		{"actions", `command = ["bin/hum", "palette", "open"]`},
+		{"panes", `command = ["bin/hum", "palette"]`},
+	} {
+		b := find(blocks, tt.kind, "palette")
+		if b == nil {
+			t.Fatalf("%s %q is missing", tt.kind, "palette")
+		}
+		if !strings.Contains(b.text, tt.want) {
+			t.Errorf("%s palette must start hum directly (%s):\n%s", tt.kind, tt.want, b.text)
+		}
+		for _, banned := range []string{"powershell", "pwsh", `"sh"`, `"cmd`, "node"} {
+			if strings.Contains(b.text, banned) {
+				t.Errorf("%s palette must not go through %s:\n%s", tt.kind, banned, b.text)
+			}
+		}
+		if b.platforms != "" {
+			t.Errorf("one definition serves every platform, got platforms = %s", b.platforms)
+		}
+	}
+}
+
+func TestPalettePopupSizeAndPlacement(t *testing.T) {
+	t.Parallel()
+
+	pane := find(readManifest(t), "panes", "palette")
+	if pane == nil {
+		t.Fatal("pane palette is missing")
+	}
+	for _, want := range []string{`placement = "popup"`, `width = "70%"`, `height = "60%"`} {
+		if !strings.Contains(pane.text, want) {
+			t.Errorf("pane palette lacks %s", want)
 		}
 	}
 }
