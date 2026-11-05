@@ -19,6 +19,7 @@ const (
 
 // View dibuja el marco de la paleta con el tamaño de la ventana.
 func (m PaletteModel) View() string {
+	defer m.tr.note("tui: first view rendered (the terminal gets it within one frame)")
 	w, _ := m.size()
 	cw := w - 4
 	b := boxFor(m.st)

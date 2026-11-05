@@ -103,6 +103,7 @@ El plugin `herdr-rename` sigue funcionando como respaldo; el selector ya renombr
 | `hum attention [--json] [--watch [--interval 5s] [--notify]]` | Quién te necesita: `blocked` y `done` primero, luego `working`; los `idle` solo se cuentan. `--watch` redibuja; `--notify` avisa una vez por transición a `blocked`/`done` |
 | `hum pick [--local] [--machine NOMBRE] [--full-names]` | Selector interactivo a pantalla completa (necesita una terminal); ver [Selector](#selector-hum-pick) |
 | `hum palette` | Paleta de comandos: busca con coincidencia difusa y ejecuta cualquier comando de herdr o acción de cualquier plugin (necesita una terminal; se abre con una tecla); ver [Paleta de comandos](#paleta-de-comandos-hum-palette) |
+| `hum trace on\|off\|show\|clear` | Traza de tiempos de los popups, para medir cuánto tardan en dibujar el primer cuadro; ver [Paleta de comandos](#paleta-de-comandos-hum-palette) |
 | `hum new <tipo> [carpeta] [--name N] [--machine M] [--no-focus] [--timeout MS]` | Abre un tab, arranca un agente en él y lo nombra; imprime `maquina/pane`. Sin argumentos, en una terminal pregunta tipo, carpeta y nombre; ver [Crear un agente](#crear-un-agente-hum-new) |
 | `hum look <quién> [--lines N]` | Lee la salida reciente de un agente |
 | `hum name <quién> <nombre>` / `--clear` | Renombra agente **y** pane a la vez |
@@ -270,6 +271,40 @@ para funcionar:
 - El workspace, la pestaña y el pane de origen se leen de la variable
   `HERDR_PLUGIN_CONTEXT_JSON` que herdr ya entrega al popup: no hace falta
   preguntar `pane current` ni pasar variables entre la acción y el pane.
+
+**Medir la apertura (`hum trace`).** Para comprobarlo con números y no a ojo:
+
+```powershell
+hum trace on        # enciende la traza (también sirve HUM_TRACE=1 en la terminal)
+# ... abre la paleta con su tecla unas cuantas veces ...
+hum trace show      # últimas líneas del log
+hum trace off       # la apaga (el log se conserva); "hum trace clear" lo borra
+```
+
+`hum trace on` crea un archivo marcador en la carpeta de caché de hum
+(`%LOCALAPPDATA%\herdr-human` en Windows) en vez de depender de una variable de
+entorno, porque los popups heredan el entorno del **servidor** de herdr y no el de
+tu terminal. Cada línea lleva la hora, el proceso y los milisegundos desde que
+Windows creó el proceso (no desde `main`, así que incluye cargar el `.exe`):
+
+```text
+12:25:12.036Z pid=54840 palette open +24.2ms open: asking herdr to open the pane
+12:25:12.075Z pid=54840 palette open +63.2ms open: herdr answered
+12:25:12.183Z pid=58372 palette +115.3ms environment ready
+12:25:12.185Z pid=58372 palette +117.1ms tui: first view rendered (the terminal gets it within one frame)
+12:25:12.202Z pid=58372 palette +134.3ms palette: first frame written to the terminal (190.3ms since the trigger)
+12:25:12.212Z pid=58372 palette +144.6ms palette: herdr answered with the plugin list
+```
+
+«Primer cuadro» es cuando se escribe en la terminal el primer fotograma con el
+título (la salida se envuelve conservando el archivo, para que Bubble Tea siga
+conociendo el tamaño de la ventana). «Desde el disparo» cuenta desde que arrancó el
+proceso de la acción; `hum` se lo pasa al popup con `--env HUM_TRACE_T0`, solo si
+la traza está encendida. En esta máquina (Windows, 5 aperturas): ~175–231 ms
+(mediana ~190 ms) desde el disparo hasta el primer cuadro. De ellos, lo que hace
+`hum` desde `main` hasta escribirlo son ~19 ms; ~100 ms son el arranque del pane
+en herdr (un proceso en una consola normal llega a `main` en ~11 ms, el del
+popup en ~106–147 ms), que `hum` no controla. Con la traza apagada no escribe nada.
 
 Lo elegido no se ejecuta dentro del popup: mientras está abierto, herdr rechaza
 (`ui_busy`) todo lo que abra un pane o popup. Por eso `hum palette` lanza un

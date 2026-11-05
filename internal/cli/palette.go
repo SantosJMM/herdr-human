@@ -1,14 +1,19 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/SantosJMM/herdr-human/internal/herdr"
 	"github.com/SantosJMM/herdr-human/internal/palette"
+	"github.com/SantosJMM/herdr-human/internal/trace"
 	"github.com/SantosJMM/herdr-human/internal/tui"
 )
 
@@ -63,9 +68,16 @@ func (a *app) paletteOpen(ctx context.Context) error { return a.openPane(ctx, pa
 // openPane abre y enfoca el pane del plugin con ese id. Reintenta unos instantes
 // si el popup anterior aún se está cerrando.
 func (a *app) openPane(ctx context.Context, entrypoint string) error {
-	return a.herdrWhenFree(ctx, []string{
-		"plugin", "pane", "open", "--plugin", a.pluginID(), "--entrypoint", entrypoint, "--focus",
-	}, 0, openMaxAttempts)
+	argv := []string{"plugin", "pane", "open", "--plugin", a.pluginID(), "--entrypoint", entrypoint, "--focus"}
+	if a.env.Trace != nil {
+		// Con la traza encendida, el popup sabe cuándo empezó todo (el arranque de
+		// este proceso, que es lo más cerca que hay de la pulsación de la tecla).
+		argv = append(argv, "--env", trace.TriggerEnv+"="+trace.FormatTrigger(a.env.Trace.Start()))
+	}
+	a.env.Trace.Mark("open: asking herdr to open the pane")
+	err := a.herdrWhenFree(ctx, argv, 0, openMaxAttempts)
+	a.env.Trace.Mark("open: herdr answered")
+	return err
 }
 
 // paletteUI dibuja la paleta. Se pinta al instante con los comandos embebidos y
@@ -97,11 +109,14 @@ func (a *app) paletteUI(ctx context.Context) error {
 
 	// El primer cuadro no espera a herdr: lo embebido y la caché están en disco.
 	cached := palette.LoadCache(dir)
+	initial := merge(cached)
+	a.env.Trace.Mark("palette: catalog, cache and settings ready")
 	ictx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	updates := make(chan tui.PluginUpdate, 1)
 	go func() {
 		plugins, err := palette.ListPlugins(ictx, a.env.Runner)
+		a.env.Trace.Mark("palette: herdr answered with the plugin list")
 		if err != nil {
 			updates <- tui.PluginUpdate{Err: err}
 			return
@@ -112,11 +127,12 @@ func (a *app) paletteUI(ctx context.Context) error {
 	}()
 
 	vals := &palette.Context{Origin: origin, Lists: palette.HerdrLister{Runner: a.env.Runner}}
-	res, err := tui.RunPalette(ictx, a.env.Stdin, a.env.Stdout, tui.PaletteOptions{
+	res, err := tui.RunPalette(ictx, a.env.Stdin, a.tracedStdout(), tui.PaletteOptions{
 		Style:   style,
-		Entries: merge(cached),
+		Entries: initial,
 		Updates: updates,
 		Merge:   merge,
+		Trace:   a.env.Trace.Mark,
 		Resolve: func(ctx context.Context, e palette.Entry, p palette.Prompter) ([]string, bool, error) {
 			return palette.Resolve(ctx, e, vals, p)
 		},
@@ -214,4 +230,62 @@ func (a *app) sleepFor(ctx context.Context, d time.Duration) error {
 		return a.env.Sleep(ctx, d)
 	}
 	return sleepContext(ctx, d)
+}
+
+// frameMarker es un texto que solo aparece en el primer cuadro dibujado de la paleta.
+var frameMarker = []byte("Command palette")
+
+// tracedStdout devuelve la salida de la paleta. Con la traza apagada es la
+// salida tal cual. Encendida, la envuelve para anotar cuándo se escribe el primer
+// cuadro en la terminal, que es lo que de verdad ve la persona: cuando la salida
+// es un archivo se conserva como tal (Bubble Tea lo necesita para conocer el
+// tamaño de la ventana).
+func (a *app) tracedStdout() io.Writer {
+	if a.env.Trace == nil {
+		return a.env.Stdout
+	}
+	const name = "palette: first frame written to the terminal"
+	var once sync.Once
+	onFrame := func() {
+		once.Do(func() {
+			if t0, ok := trace.ParseTrigger(a.getenv(trace.TriggerEnv)); ok {
+				a.env.Trace.MarkSince(name, t0)
+				return
+			}
+			a.env.Trace.Mark(name)
+		})
+	}
+	if f, ok := a.env.Stdout.(*os.File); ok {
+		return &frameFile{File: f, onFrame: onFrame}
+	}
+	return &frameWriter{Writer: a.env.Stdout, onFrame: onFrame}
+}
+
+// frameFile es un *os.File que avisa al escribir el primer cuadro. Al incrustar
+// el archivo conserva Fd, Read y Close, que Bubble Tea usa para detectar la terminal.
+type frameFile struct {
+	*os.File
+	onFrame func()
+}
+
+func (f *frameFile) Write(p []byte) (int, error) {
+	n, err := f.File.Write(p)
+	if err == nil && bytes.Contains(p, frameMarker) {
+		f.onFrame()
+	}
+	return n, err
+}
+
+// frameWriter es lo mismo para una salida que no es un archivo.
+type frameWriter struct {
+	io.Writer
+	onFrame func()
+}
+
+func (f *frameWriter) Write(p []byte) (int, error) {
+	n, err := f.Writer.Write(p)
+	if err == nil && bytes.Contains(p, frameMarker) {
+		f.onFrame()
+	}
+	return n, err
 }

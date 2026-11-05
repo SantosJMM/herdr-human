@@ -18,6 +18,7 @@ import (
 	"github.com/SantosJMM/herdr-human/internal/herdr"
 	"github.com/SantosJMM/herdr-human/internal/inventory"
 	"github.com/SantosJMM/herdr-human/internal/resolve"
+	"github.com/SantosJMM/herdr-human/internal/trace"
 	"github.com/SantosJMM/herdr-human/internal/ui"
 )
 
@@ -83,6 +84,9 @@ type Env struct {
 	// independiente que sigue vivo cuando este termina; nulo si la plataforma no
 	// lo permite. La paleta lo usa para ejecutar lo elegido tras cerrar su popup.
 	Detach func(args []string) error
+	// Trace anota los tiempos de arranque cuando la traza está encendida (ver
+	// `hum trace`); nulo la apaga, y todas sus llamadas son seguras con nulo.
+	Trace *trace.Tracer
 }
 
 const usageText = `hum - friendly commands for herdr
@@ -111,6 +115,9 @@ Usage:
                                                 herdr command and every action of every
                                                 plugin (needs a terminal; bind the
                                                 "palette" action of this plugin to a key)
+  hum trace on|off|show|clear                    timing trace of the popups (to measure how long
+                                                they take to draw their first frame); "show"
+                                                prints the last lines of the log
   hum new <kind> [folder] [--name NAME] [--machine NAME] [--no-focus] [--timeout MS]
                                                 open a tab, start an agent in it and
                                                 name it; prints machine/pane. Without
@@ -244,6 +251,8 @@ func (a *app) dispatch(ctx context.Context, args []string) error {
 		return a.palette(ctx, rest)
 	case "popup":
 		return a.popup(ctx, rest) // interno: lo usa el manifest del plugin
+	case "trace":
+		return a.traceCmd(rest)
 	case "completion":
 		return a.completion(ctx, rest)
 	case "__complete":

@@ -200,6 +200,11 @@ type paletteRun struct {
 }
 
 func startPaletteUI(t *testing.T, fake *herdrtest.Fake, extra map[string]string) *paletteRun {
+	return startPaletteWith(t, fake, extra, nil)
+}
+
+// startPaletteWith es startPaletteUI con una última oportunidad de ajustar el entorno.
+func startPaletteWith(t *testing.T, fake *herdrtest.Fake, extra map[string]string, tune func(*cli.Env)) *paletteRun {
 	t.Helper()
 	pr, pw := io.Pipe()
 	t.Cleanup(func() { _ = pw.Close() })
@@ -220,6 +225,9 @@ func startPaletteUI(t *testing.T, fake *herdrtest.Fake, extra map[string]string)
 		Runner: fake, Stdin: pr, Stdout: r.scr, Stderr: r.stderr, Terminal: true, StdinTerminal: true,
 		Getenv: envWith(vars), GOOS: "windows", Width: 100, Height: 30,
 		Detach: func(args []string) error { r.detach <- args; return nil },
+	}
+	if tune != nil {
+		tune(&env)
 	}
 	r.started = time.Now()
 	go func() { r.done <- cli.Run(context.Background(), env, []string{"palette"}) }()

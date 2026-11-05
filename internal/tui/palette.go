@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"strings"
+	"sync"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -34,6 +35,30 @@ type PaletteOptions struct {
 	// persona por medio del Prompter.
 	Resolve func(ctx context.Context, e palette.Entry, p palette.Prompter) (argv []string, ok bool, err error)
 	Ctx     context.Context
+	// Trace, si no es nil, recibe una marca cuando pasa algo que importa para
+	// medir la apertura (ver `hum trace`).
+	Trace func(name string)
+}
+
+// firstOnly llama a mark solo la primera vez que se anota cada nombre. Se
+// comparte entre las copias del modelo, de ahí el puntero y el candado.
+type firstOnly struct {
+	mu   sync.Mutex
+	seen map[string]bool
+	mark func(string)
+}
+
+func (f *firstOnly) note(name string) {
+	if f == nil || f.mark == nil {
+		return
+	}
+	f.mu.Lock()
+	first := !f.seen[name]
+	f.seen[name] = true
+	f.mu.Unlock()
+	if first {
+		f.mark(name)
+	}
 }
 
 // PaletteResult es lo que eligió la persona.
@@ -195,6 +220,7 @@ type PaletteModel struct {
 	st     *ui.Style
 	opts   PaletteOptions
 	bridge *palBridge
+	tr     *firstOnly
 
 	entries []palette.Entry
 	list    picker
@@ -219,7 +245,8 @@ type PaletteModel struct {
 
 // NewPalette crea el modelo con las entradas ya listas para el primer cuadro.
 func NewPalette(o PaletteOptions) PaletteModel {
-	m := PaletteModel{st: o.Style, opts: o, bridge: &palBridge{send: func(tea.Msg) {}}, loading: o.Updates != nil}
+	m := PaletteModel{st: o.Style, opts: o, bridge: &palBridge{send: func(tea.Msg) {}}, loading: o.Updates != nil,
+		tr: &firstOnly{seen: map[string]bool{}, mark: o.Trace}}
 	if m.st == nil {
 		m.st = ui.NewStyle(ui.Capability{}, ui.Theme{})
 	}
@@ -284,11 +311,13 @@ func (m PaletteModel) Init() tea.Cmd {
 func (m PaletteModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
+		m.tr.note("tui: window size received")
 		m.width, m.height = msg.Width, msg.Height
 		m.list.move(m.list.sel, m.pageSize())
 		return m, nil
 
 	case PluginUpdate:
+		defer m.tr.note("tui: plugin list merged into the view")
 		m.loading = false
 		m.pluginsErr = msg.Err
 		if msg.Err == nil && m.opts.Merge != nil {
