@@ -110,18 +110,18 @@ func TestPluginEntriesFiltersAndNames(t *testing.T) {
 			{ID: "win", Title: "", Platforms: []string{"windows"}},
 		}},
 		{PluginID: "b.off", Name: "Off", Enabled: false, Actions: []PluginAction{{ID: "x"}}},
-		{PluginID: "me.palette", Name: "Me", Enabled: true, Actions: []PluginAction{{ID: "open"}}},
+		{PluginID: "me", Name: "Me", Enabled: true, Actions: []PluginAction{{ID: "palette"}, {ID: "pick"}}},
 		{PluginID: "c.noname", Enabled: true, Actions: []PluginAction{{ID: "go", Title: "Go"}}},
 	}
 	got := PluginEntries(plugins, "windows", "me.palette")
-	if want := []string{"a.one.open", "a.one.win", "c.noname.go"}; !slices.Equal(ids(got), want) {
+	if want := []string{"a.one.open", "a.one.win", "me.pick", "c.noname.go"}; !slices.Equal(ids(got), want) {
 		t.Fatalf("got %v want %v", ids(got), want)
 	}
 	if got[1].Title != "win" {
 		t.Errorf("an action without a title shows its id, got %q", got[1].Title)
 	}
-	if got[2].Source != "c.noname" {
-		t.Errorf("a plugin without a name shows its id, got %q", got[2].Source)
+	if got[3].Source != "c.noname" {
+		t.Errorf("a plugin without a name shows its id, got %q", got[3].Source)
 	}
 }
 

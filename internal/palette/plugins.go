@@ -45,13 +45,14 @@ func Platform(goos string) string {
 }
 
 // PluginEntries convierte los plugins en filas de la paleta. Se omiten los
-// plugins deshabilitados, las acciones que no corren en esta plataforma y todo
-// lo del plugin excluido (el propio, para que la paleta no se liste a sí misma).
-// Una lista vacía de plataformas significa que herdr la ejecuta en cualquiera.
-func PluginEntries(plugins []PluginInfo, platform, excludePluginID string) []Entry {
+// plugins deshabilitados, las acciones que no corren en esta plataforma y las
+// entradas cuyo id esté en exclude (la propia paleta, para no listarse a sí
+// misma; el resto de acciones del plugin sí se ofrecen). Una lista vacía de
+// plataformas significa que herdr la ejecuta en cualquiera.
+func PluginEntries(plugins []PluginInfo, platform string, exclude ...string) []Entry {
 	var entries []Entry
 	for _, p := range plugins {
-		if !p.Enabled || p.PluginID == "" || p.PluginID == excludePluginID {
+		if !p.Enabled || p.PluginID == "" {
 			continue
 		}
 		source := p.Name
@@ -59,7 +60,8 @@ func PluginEntries(plugins []PluginInfo, platform, excludePluginID string) []Ent
 			source = p.PluginID
 		}
 		for _, a := range p.Actions {
-			if a.ID == "" || (len(a.Platforms) > 0 && !slices.Contains(a.Platforms, platform)) {
+			id := p.PluginID + "." + a.ID
+			if a.ID == "" || slices.Contains(exclude, id) || (len(a.Platforms) > 0 && !slices.Contains(a.Platforms, platform)) {
 				continue
 			}
 			title := a.Title
@@ -67,7 +69,7 @@ func PluginEntries(plugins []PluginInfo, platform, excludePluginID string) []Ent
 				title = a.ID
 			}
 			entries = append(entries, Entry{
-				Kind: KindPlugin, ID: p.PluginID + "." + a.ID, Title: title, Description: a.Description,
+				Kind: KindPlugin, ID: id, Title: title, Description: a.Description,
 				Source: source, PluginID: p.PluginID, ActionID: a.ID,
 			})
 		}
