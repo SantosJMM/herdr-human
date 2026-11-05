@@ -19,7 +19,8 @@ type fakeKeys struct {
 	conflict map[string]string // tecla -> motivo que impide usarla
 	warn     map[string]string // tecla -> aviso
 	saveErr  error
-	saved    []string // "id=tecla"
+	how      map[string]string // id de la entrada -> cómo se ejecuta
+	saved    []string          // "id=tecla"
 	removed  []string
 }
 
@@ -372,5 +373,25 @@ func TestTheRowKeepsShowingItsNewShortcutAfterTheNoticeGoes(t *testing.T) {
 		if strings.Contains(line, "Pane: Close current") && !strings.Contains(line, "ctrl+alt+k") {
 			t.Errorf("the saved shortcut is on the row of its entry: %q", line)
 		}
+	}
+}
+
+func (f *fakeKeys) HowItRuns(e palette.Entry) string {
+	if f.how != nil {
+		return f.how[e.ID]
+	}
+	return ""
+}
+
+func TestTheShortcutScreenSaysHowTheShortcutWillRun(t *testing.T) {
+	k := newFakeKeys()
+	k.how = map[string]string{"pane.close": "opens the palette on this command, which asks you what it needs"}
+	m := press(t, keyPalette(t, k), ctrlK)
+	if v := m.View(); !strings.Contains(v, "when pressed: opens the palette on this command") {
+		t.Errorf("before saving it says what the key will do:\n%s", v)
+	}
+	// Sin nada que decir, no hay línea.
+	if v := press(t, keyPalette(t, newFakeKeys()), ctrlK).View(); strings.Contains(v, "when pressed") {
+		t.Errorf("no line without a description:\n%s", v)
 	}
 }

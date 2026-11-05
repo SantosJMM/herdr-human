@@ -437,44 +437,97 @@ func TestSpecForNativeCommandsIsAShellCommandInTheSystemsSyntax(t *testing.T) {
 	}
 }
 
-func TestSpecForRefusesWhatNeedsToAskOrCannotBeWrittenSafely(t *testing.T) {
-	for _, id := range []string{
-		"workspace.new",    // pide una carpeta
-		"workspace.switch", // pide elegir
-		"tab.next",         // vecino calculado
-		"hum.agent.say",    // comando de hum
-		"worktree.new",     // pide una rama
-		"machine.enable",   // pide elegir
+func TestEntriesThatAskOpenThePaletteOnThemInsteadOfRunningBlind(t *testing.T) {
+	for _, tt := range []struct {
+		id, goos, want string
+	}{
+		{"agent.focus", "windows", `"%HERDR_BIN_PATH%" plugin pane open --plugin herdr-human --entrypoint palette --focus --env HUM_PALETTE_ENTRY=agent.focus`},
+		{"agent.focus", "linux", `"$HERDR_BIN_PATH" plugin pane open --plugin herdr-human --entrypoint palette --focus --env HUM_PALETTE_ENTRY=agent.focus`},
+		{"workspace.new", "windows", `"%HERDR_BIN_PATH%" plugin pane open --plugin herdr-human --entrypoint palette --focus --env HUM_PALETTE_ENTRY=workspace.new`},
+		{"tab.next", "darwin", `"$HERDR_BIN_PATH" plugin pane open --plugin herdr-human --entrypoint palette --focus --env HUM_PALETTE_ENTRY=tab.next`},
+		{"hum.agent.say", "windows", `"%HERDR_BIN_PATH%" plugin pane open --plugin herdr-human --entrypoint palette --focus --env HUM_PALETTE_ENTRY=hum.agent.say`},
+		{"machine.enable", "linux", `"$HERDR_BIN_PATH" plugin pane open --plugin herdr-human --entrypoint palette --focus --env HUM_PALETTE_ENTRY=machine.enable`},
 	} {
-		if b, ok := SpecFor(entryByID(t, id), "windows"); ok {
-			t.Errorf("%s must not be bindable, got %v", id, b)
+		b, how, ok := SpecHow(entryByID(t, tt.id), tt.goos)
+		if !ok || how != HowOpenPalette || b.Type != TypeShell || b.Command != tt.want {
+			t.Errorf("%s on %s = %v how=%v ok=%v, want shell %q", tt.id, tt.goos, b, how, ok, tt.want)
 		}
-	}
-	unsafe := palette.Entry{Kind: palette.KindNative, Command: []string{"x"}, Arguments: []palette.Argument{{Source: palette.SourceLiteral, Value: "a b; rm"}}}
-	if _, ok := SpecFor(unsafe, "linux"); ok {
-		t.Error("a literal with spaces or shell characters is never written into a shell command")
 	}
 }
 
-func TestEveryBindableCatalogEntryIsTheCatalogsOwnCommandAndSafe(t *testing.T) {
+func TestHowAnEntryRunsDependsOnWhetherItNeedsToAsk(t *testing.T) {
+	for id, want := range map[string]How{
+		"tab.close":     HowDirect,      // un id que herdr ya da: se ejecuta tal cual
+		"config.reload": HowDirect,      // sin argumentos
+		"agent.focus":   HowOpenPalette, // elige un agente
+		"worktree.new":  HowOpenPalette, // pide una rama
+		"hum.agent.new": HowOpenPalette, // comando de hum
+	} {
+		if _, how, ok := SpecHow(entryByID(t, id), "windows"); !ok || how != want {
+			t.Errorf("%s: how = %v ok=%v, want %v", id, how, ok, want)
+		}
+	}
+	if _, how, _ := SpecHow(palette.Entry{Kind: palette.KindPlugin, ID: "a.b"}, "linux"); how != HowPluginAction {
+		t.Errorf("a plugin action is invoked by herdr, got %v", how)
+	}
+}
+
+func TestSpecForStillRefusesWhatCannotBeWrittenSafely(t *testing.T) {
+	// El id es lo único que se escribe en el comando que abre la paleta.
+	for _, e := range []palette.Entry{
+		{Kind: palette.KindNative, ID: "a b; rm", Command: []string{"x y"}},
+		{Kind: palette.KindHum, ID: `x"y`, Command: []string{"new"}},
+		{Kind: palette.KindNative, ID: "", Command: []string{"x y"}},
+		{Kind: palette.KindPlugin},
+		{Kind: palette.Kind(99), ID: "ok.id"},
+	} {
+		if b, ok := SpecFor(e, "linux"); ok {
+			t.Errorf("%+v must not be bindable, got %v", e, b)
+		}
+	}
+	// Un argumento literal inseguro ya no impide enlazarla: la entrada se abre en la
+	// paleta, y el argumento no se escribe en el comando.
+	unsafe := palette.Entry{Kind: palette.KindNative, ID: "weird.cmd", Command: []string{"x"}, Arguments: []palette.Argument{{Source: palette.SourceLiteral, Value: "a b; rm"}}}
+	b, how, ok := SpecHow(unsafe, "linux")
+	if !ok || how != HowOpenPalette || strings.Contains(b.Command, "rm") {
+		t.Errorf("an unsafe literal never reaches the shell command: %v %v %v", b, how, ok)
+	}
+}
+
+func TestEveryCatalogEntryCanNowBeBoundAndNeverCarriesShellMetacharacters(t *testing.T) {
 	entries, _ := palette.Native()
-	bindable := 0
+	direct, open := 0, 0
 	for _, e := range entries {
 		for _, goos := range []string{"windows", "linux"} {
-			b, ok := SpecFor(e, goos)
+			b, how, ok := SpecHow(e, goos)
 			if !ok {
+				t.Errorf("%s (%s) must be bindable: any entry can open the palette on itself", e.ID, goos)
 				continue
 			}
-			if goos == "windows" {
-				bindable++
-			}
-			if e.Kind != palette.KindNative || b.Type != TypeShell || strings.ContainsAny(b.Command, ";&|<>`\n\r") {
+			if b.Type != TypeShell || strings.ContainsAny(b.Command, ";&|<>`\n\r") {
 				t.Errorf("%s: unexpected spec %v", e.ID, b)
+			}
+			if goos == "windows" {
+				switch how {
+				case HowDirect:
+					direct++
+					if e.Kind != palette.KindNative {
+						t.Errorf("%s: only herdr commands run directly", e.ID)
+					}
+				case HowOpenPalette:
+					open++
+					if !strings.HasSuffix(b.Command, "HUM_PALETTE_ENTRY="+e.ID) {
+						t.Errorf("%s: the command must end with its own id: %s", e.ID, b.Command)
+					}
+				}
 			}
 		}
 	}
-	if bindable < 15 {
-		t.Errorf("only %d catalog commands are bindable; the point of the feature is that many are", bindable)
+	if direct < 15 || open < 15 {
+		t.Errorf("both ways matter: %d direct, %d open the palette", direct, open)
+	}
+	if direct+open != len(entries) {
+		t.Errorf("%d + %d does not add up to the %d catalog entries", direct, open, len(entries))
 	}
 }
 

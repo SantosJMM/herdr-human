@@ -317,3 +317,19 @@ func (a *app) chords(native []palette.Entry) map[string]string {
 	}
 	return chords
 }
+
+// HowItRuns cuenta qué pasará al pulsar el atajo de la entrada.
+func (k *keyService) HowItRuns(e palette.Entry) string {
+	_, how, ok := keybind.SpecHow(e, k.goos)
+	if !ok {
+		return ""
+	}
+	switch how {
+	case keybind.HowPluginAction:
+		return "herdr runs the plugin action"
+	case keybind.HowDirect:
+		return "herdr runs the command right away"
+	default:
+		return "opens the palette on this command, which asks you what it needs"
+	}
+}

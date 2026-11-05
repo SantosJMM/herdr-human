@@ -266,16 +266,38 @@ escribe como en el `config.toml` de herdr (`ctrl+alt+k`, `alt+left`, `f5`,
 | `enter` | guardar |
 | `esc` | cerrar la pantalla sin cambiar nada (un segundo `esc` cierra la paleta) |
 
-Se puede enlazar:
+**Todas las entradas se pueden enlazar**, de tres maneras según lo que necesiten (la
+pantalla de atajo te dice cuál le toca, en la línea *when pressed*):
 
-- **las acciones de cualquier plugin** (las de `hum`, `herdr-rename`, `reviewr`…),
-  que se guardan como `type = "plugin_action"` con su id calificado;
-- **los comandos de herdr que no piden nada**, por ejemplo *Config: Reload* o
-  *Tab: Close current*, que se guardan como `type = "shell"` con la sintaxis de la
-  shell del sistema (`cmd.exe` en Windows, `sh` en el resto) y los ids que herdr da
-  a los comandos de ese tipo (`HERDR_ACTIVE_TAB_ID`…). Los que preguntan algo
-  (carpeta, nombre, elegir uno) o usan un valor calculado no se pueden enlazar, y la
-  paleta lo dice en vez de abrir la pantalla.
+- **Las acciones de cualquier plugin** (las de `hum`, `herdr-rename`, `reviewr`…) se
+  guardan como `type = "plugin_action"` con su id calificado: herdr las invoca.
+- **Los comandos de herdr que no preguntan nada**, por ejemplo *Config: Reload* o
+  *Tab: Close current*, se guardan como `type = "shell"` con la sintaxis de la shell
+  del sistema (`cmd.exe` en Windows, `sh` en el resto) y los ids que herdr da a los
+  comandos de ese tipo (`HERDR_ACTIVE_TAB_ID`…): herdr los ejecuta tal cual, sin
+  interfaz, y por eso son instantáneos.
+- **Todo lo demás** —los comandos que piden **elegir** (*Agent: Focus…*,
+  *Workspace: Switch…*), **escribir** (*Worktree: New…*), los de siguiente/anterior y
+  los de `hum`— no pueden ejecutarse a ciegas desde una tecla, porque necesitan
+  preguntarte algo. Se guardan también como `type = "shell"`, pero el comando
+  **abre el popup de la paleta ya dentro de esa entrada**:
+
+  ```toml
+  [[keys.command]]
+  key = "ctrl+alt+f"
+  type = "shell"
+  command = "\"%HERDR_BIN_PATH%\" plugin pane open --plugin herdr-human --entrypoint palette --focus --env HUM_PALETTE_ENTRY=agent.focus"
+  description = "Agent: Focus…"
+  ```
+
+  `hum palette` lee `HUM_PALETTE_ENTRY` y entra directamente en esa entrada: ves la
+  lista de agentes (o la pregunta que toque) sin buscar ni elegir la fila, eliges y
+  se ejecuta como si lo hubieras hecho desde la lista. **Esc** en la primera pregunta
+  lo cierra todo. Si la entrada no está disponible desde donde pulsaste (por
+  ejemplo, *Pane: Close current* sin pane de origen), la paleta se abre normal con un
+  aviso y no ejecuta nada. Solo vale el id de una entrada del catálogo; la variable
+  la pasa el atajo con `--env`, no la pongas en el entorno de herdr, o `F1` entraría
+  siempre directo.
 
 Cada cambio al `config.toml` se hace con red de seguridad:
 

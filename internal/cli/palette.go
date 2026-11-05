@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/SantosJMM/herdr-human/internal/herdr"
+	"github.com/SantosJMM/herdr-human/internal/keybind"
 	"github.com/SantosJMM/herdr-human/internal/palette"
 	"github.com/SantosJMM/herdr-human/internal/trace"
 	"github.com/SantosJMM/herdr-human/internal/tui"
@@ -22,7 +23,7 @@ const (
 	// defaultPluginID es el id del plugin cuando herdr no lo informa.
 	defaultPluginID = "herdr-human"
 	// paletteID es el id de la acción y del pane de la paleta en el manifest.
-	paletteID = "palette"
+	paletteID = keybind.PaletteEntrypoint
 	// Mientras un popup está abierto (o terminando de cerrarse), cualquier comando
 	// que abra un pane o popup recibe `ui_busy`. Se reintenta con una espera corta
 	// mientras herdr siga diciendo que está ocupado.
@@ -158,6 +159,8 @@ func (a *app) paletteUI(ctx context.Context, embedded bool) error {
 		// Dentro de un popup de herdr no se dibuja un segundo marco.
 		Embedded: embedded,
 		Keys:     keys,
+		// Un atajo asignado a un comando que pregunta abre la paleta ya dentro de él.
+		StartWith: a.getenv(keybind.PaletteEntryEnv),
 		Resolve: func(ctx context.Context, e palette.Entry, p palette.Prompter) ([]string, bool, error) {
 			return palette.Resolve(ctx, e, vals, p)
 		},

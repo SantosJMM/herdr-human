@@ -32,6 +32,9 @@ type KeyService interface {
 	// Bindable dice si la entrada puede enlazarse a una tecla y cuál tiene ahora
 	// (vacía si ninguna).
 	Bindable(e palette.Entry) (current string, ok bool)
+	// HowItRuns cuenta, en una frase, qué pasará al pulsar el atajo de la entrada
+	// (se ejecuta directo, o abre la paleta y pregunta). Vacía si no hay nada que decir.
+	HowItRuns(e palette.Entry) string
 	// Check valida una tecla candidata sin escribir nada.
 	Check(e palette.Entry, key string) KeyCheck
 	// Save enlaza la tecla a la entrada y recarga la configuración de herdr.

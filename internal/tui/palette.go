@@ -44,7 +44,16 @@ type PaletteOptions struct {
 	// Keys permite asignar, cambiar y quitar atajos de teclado con ctrl+k sobre la
 	// fila seleccionada. Nulo desactiva la función.
 	Keys KeyService
+	// StartWith es el id de una entrada en la que entrar directamente al abrir,
+	// como si se hubiera elegido en la lista: es lo que hace un atajo de teclado
+	// asignado a un comando que necesita preguntar algo. Si la entrada no existe
+	// aquí (por ejemplo, falta el pane de origen que necesita), se abre la lista
+	// normal con un aviso.
+	StartWith string
 }
+
+// startWithMsg pide entrar en la entrada de StartWith.
+type startWithMsg struct{}
 
 // chrome son las líneas que no son filas de la lista: con marco propio, borde,
 // búsqueda, 2 separadores, descripción, teclas y borde; incrustado, búsqueda,
@@ -320,13 +329,27 @@ func (m PaletteModel) pageSize() int {
 
 // Init espera las acciones de plugins, si las hay.
 func (m PaletteModel) Init() tea.Cmd {
-	if m.opts.Updates == nil {
-		return nil
+	var cmds []tea.Cmd
+	if ch := m.opts.Updates; ch != nil {
+		cmds = append(cmds, func() tea.Msg { return <-ch })
 	}
-	ch := m.opts.Updates
-	return func() tea.Msg {
-		return <-ch
+	if m.opts.StartWith != "" {
+		cmds = append(cmds, func() tea.Msg { return startWithMsg{} })
 	}
+	return tea.Batch(cmds...)
+}
+
+// enterStartEntry entra en la entrada de StartWith, o avisa de que no está.
+func (m PaletteModel) enterStartEntry() (tea.Model, tea.Cmd) {
+	id := m.opts.StartWith
+	for _, e := range m.entries {
+		if e.ID == id {
+			m.tr.note("tui: opened directly on " + id)
+			return m.pick(e)
+		}
+	}
+	m.notice = "«" + id + "» is not available from here: it needs something that is not at hand."
+	return m, nil
 }
 
 // Update procesa un mensaje.
@@ -381,6 +404,9 @@ func (m PaletteModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.result.Entry, m.result.Argv, m.result.Chosen = msg.entry, msg.argv, true
 		}
 		return m, tea.Quit
+
+	case startWithMsg:
+		return m.enterStartEntry()
 
 	case keyDoneMsg:
 		return m.onKeyDone(msg), nil

@@ -101,8 +101,32 @@ func TestKeysLsShowsTheBoundEntriesAndAllWithAll(t *testing.T) {
 			t.Errorf("--all lists everything that can be bound; lacks %q:\n%s", want, all.stdout)
 		}
 	}
-	if strings.Contains(all.stdout, "workspace.new") || strings.Contains(all.stdout, "hum.agent") {
-		t.Errorf("entries that must ask something are not bindable:\n%s", all.stdout)
+	for _, ask := range []string{"agent.focus", "workspace.new", "hum.agent.say", "tab.next"} {
+		if !strings.Contains(all.stdout, ask) {
+			t.Errorf("entries that ask something are bindable too (the shortcut opens the palette on them); lacks %q:\n%s", ask, all.stdout)
+		}
+	}
+}
+
+func TestKeysSetBindsAnEntryThatAsksByOpeningThePaletteOnIt(t *testing.T) {
+	for goos, want := range map[string]string{
+		"windows": `command = "\"%HERDR_BIN_PATH%\" plugin pane open --plugin herdr-human --entrypoint palette --focus --env HUM_PALETTE_ENTRY=agent.focus"`,
+		"linux":   `command = "\"$HERDR_BIN_PATH\" plugin pane open --plugin herdr-human --entrypoint palette --focus --env HUM_PALETTE_ENTRY=agent.focus"`,
+	} {
+		k := newKeysEnv(t, keysConfig)
+		if out := k.run(t, goos, "set", "agent.focus", "ctrl+alt+f"); out.code != 0 {
+			t.Fatalf("%s: %+v", goos, out)
+		}
+		got := k.text(t)
+		if !strings.Contains(got, `type = "shell"`) || !strings.Contains(got, want) || !strings.Contains(got, `description = "Agent: Focus…"`) {
+			t.Errorf("%s: want %s in:\n%s", goos, want, got)
+		}
+		if ls := k.run(t, goos, "ls"); !strings.Contains(ls.stdout, "ctrl+alt+f") || !strings.Contains(ls.stdout, "agent.focus") {
+			t.Errorf("%s: the binding reads back as that entry's shortcut:\n%s", goos, ls.stdout)
+		}
+		if rm := k.run(t, goos, "rm", "agent.focus"); rm.code != 0 || strings.Contains(k.text(t), "agent.focus") {
+			t.Errorf("%s: it can be removed again: %+v", goos, rm)
+		}
 	}
 }
 

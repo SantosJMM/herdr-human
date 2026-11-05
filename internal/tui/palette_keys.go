@@ -29,6 +29,7 @@ type capture struct {
 	entry   palette.Entry
 	index   int    // posición de la entrada en m.entries
 	current string // atajo que tiene ahora; vacío si ninguno
+	how     string // qué pasará al pulsarlo (ver KeyService.HowItRuns)
 	prefix  bool   // si la combinación va después del prefijo de herdr
 	base    string // combinación pulsada, sin el prefijo; vacía hasta que se pulsa
 	check   KeyCheck
@@ -124,7 +125,7 @@ func (m PaletteModel) startCapture() PaletteModel {
 		return m
 	}
 	m.mode = palCapture
-	m.cap = capture{active: true, entry: e, index: i, current: current}
+	m.cap = capture{active: true, entry: e, index: i, current: current, how: m.opts.Keys.HowItRuns(e)}
 	return m
 }
 
@@ -303,8 +304,11 @@ func (m PaletteModel) captureLines(plain func(string) rowRender) []rowRender {
 	lines := []rowRender{
 		plain(accent(c.entry.Title) + "  " + dim("("+c.entry.Source+")")),
 		plain(dim("now: ") + now),
-		plain(""),
 	}
+	if c.how != "" {
+		lines = append(lines, plain(dim("when pressed: "+c.how)))
+	}
+	lines = append(lines, plain(""))
 
 	switch {
 	case c.phase == capSaving:
