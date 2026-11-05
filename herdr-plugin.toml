@@ -1,6 +1,6 @@
 id = "herdr-human"
 name = "Herdr Human"
-version = "0.1.1"
+version = "0.1.2"
 min_herdr_version = "0.8.0"
 description = "Friendly names instead of ids: list, find, message and rename herdr agents across machines with the hum command."
 platforms = ["linux", "macos", "windows"]
