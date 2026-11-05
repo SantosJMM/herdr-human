@@ -49,7 +49,7 @@ var (
 )
 
 // order es el orden en que se sugieren los subcomandos.
-var order = []string{"ls", "id", "say", "ask", "attention", "look", "name", "rename", "close", "worktree", "alias", "go", "wait", "pick", "new", "palette", "machines", "completion", "help"}
+var order = []string{"ls", "id", "say", "ask", "attention", "look", "name", "rename", "close", "worktree", "alias", "go", "wait", "pick", "new", "palette", "keys", "machines", "completion", "help"}
 
 // whoCommands son los subcomandos cuyo primer argumento es un agente.
 var whoCommands = map[string]bool{"id": true, "say": true, "ask": true, "look": true, "name": true, "rename": true, "close": true, "go": true, "wait": true}
@@ -80,6 +80,7 @@ var flags = map[string][]Flag{
 	"pick":      append(base(), fv("--color"), f("--full-names"), f("--embedded")),
 	"new":       {fv("--name"), fv("--machine"), f("--no-focus"), fv("--timeout")},
 	"palette":   {f("--embedded")},
+	"keys":      {f("--all"), f("--force")},
 	"machines":  {f("--json")},
 }
 

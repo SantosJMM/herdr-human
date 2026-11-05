@@ -43,6 +43,7 @@ func main() {
 		ConfigDir:     configDir(os.Getenv),
 		Detach:        detach,
 		Trace:         tracer,
+		CheckConfig:   checkConfig,
 	}
 	if terminal {
 		ui.EnableVT(os.Stdout)
