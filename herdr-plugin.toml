@@ -112,7 +112,7 @@ title = "Talk to agents"
 placement = "popup"
 width = "90%"
 height = "80%"
-command = ["bin/hum", "pick"]
+command = ["bin/hum", "pick", "--embedded"]
 
 [[panes]]
 id = "attention"
@@ -128,4 +128,4 @@ title = "Command palette"
 placement = "popup"
 width = "70%"
 height = "60%"
-command = ["bin/hum", "palette"]
+command = ["bin/hum", "palette", "--embedded"]

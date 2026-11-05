@@ -106,8 +106,8 @@ func TestEveryPaneRunsSomethingThatExists(t *testing.T) {
 		"overview":  `["bin/hum", "popup", "show", "ls"]`,
 		"attention": `["bin/hum", "popup", "show", "attention"]`,
 		"machines":  `["bin/hum", "machines", "menu"]`,
-		"pick":      `["bin/hum", "pick"]`,
-		"palette":   `["bin/hum", "palette"]`,
+		"pick":      `["bin/hum", "pick", "--embedded"]`,
+		"palette":   `["bin/hum", "palette", "--embedded"]`,
 	}
 	blocks := readManifest(t)
 	for id, command := range want {
@@ -183,6 +183,26 @@ func TestPopupSizes(t *testing.T) {
 			if !strings.Contains(pane.text, want) {
 				t.Errorf("pane %s lacks %s", id, want)
 			}
+		}
+	}
+}
+
+// Herdr ya dibuja el marco y el titulo de un popup. Las TUI de hum que dibujan su
+// propio marco (el selector y la paleta) deben pedir el modo incrustado, o salen
+// como una caja dentro de otra; las vistas de texto no tienen marco que quitar.
+func TestPopupsThatDrawAFrameAskToBeEmbedded(t *testing.T) {
+	t.Parallel()
+
+	blocks := readManifest(t)
+	for _, id := range []string{"pick", "palette"} {
+		pane := find(blocks, "panes", id)
+		if pane == nil || !strings.Contains(pane.command, `"--embedded"`) {
+			t.Errorf("pane %s draws its own frame inside the one herdr draws: it needs --embedded: %+v", id, pane)
+		}
+	}
+	for _, id := range []string{"overview", "attention", "machines"} {
+		if pane := find(blocks, "panes", id); pane != nil && strings.Contains(pane.command, "--embedded") {
+			t.Errorf("pane %s is plain text and has no frame to remove", id)
 		}
 	}
 }

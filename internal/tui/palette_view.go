@@ -9,9 +9,6 @@ import (
 )
 
 const (
-	// palChrome son las líneas que no son filas: borde, búsqueda, 2 separadores,
-	// descripción, teclas y borde.
-	palChrome = 7
 	// Anchos máximos de las columnas de origen y atajo.
 	palMaxSource = 22
 	palMaxChord  = 18
@@ -22,32 +19,36 @@ func (m PaletteModel) View() string {
 	defer m.tr.note("tui: first view rendered (the terminal gets it within one frame)")
 	w, _ := m.size()
 	cw := w - 4
-	b := boxFor(m.st)
+	fr := newFrame(m.st, w, m.opts.Embedded)
+	b := fr.b
 	g := m.st.Glyphs()
-	dim := func(s string) string { return m.st.Paint(ui.RoleDim, s) }
+	dim := fr.dim
 	fit := func(s string) string { return ui.PadRight(ui.Truncate(s, cw, g.Ellipsis), cw) }
-	line := func(inner string) string { return dim(b.v) + " " + fit(inner) + " " + dim(b.v) }
-	rule := func(l, r string) string { return dim(l + strings.Repeat(b.h, w-2) + r) }
+	line := func(inner string) string { return fr.side() + " " + fit(inner) + " " + fr.side() }
 
+	// Con el marco propio, el título es el del popup; incrustado, lo dibuja herdr
+	// (con el título del pane) y aquí no hay marco.
 	title := " Command palette "
 	if m.mode == palInput || m.mode == palChoose {
 		title = " " + m.prompt + " "
 	}
-	out := []string{dim(b.tl + title + strings.Repeat(b.h, max(0, w-2-ui.VisibleLen(title))) + b.tr)}
+	out := fr.top(title)
 
 	left, right := m.searchLine(b)
-	out = append(out, line(ui.FitRow(cw, left, right, g.Ellipsis)), rule(b.lt, b.rt))
+	out = append(out, line(ui.FitRow(cw, left, right, g.Ellipsis)), fr.rule())
 
 	body := m.bodyLines(cw, b)
 	for i := 0; i < m.pageSize(); i++ {
 		if i < len(body) {
-			out = append(out, body[i](dim(b.v), dim(b.v)))
+			out = append(out, body[i](fr.side(), fr.side()))
 			continue
 		}
 		out = append(out, line(""))
 	}
 
-	out = append(out, rule(b.lt, b.rt), line(dim(m.describeSelected())), line(dim(m.keysText())), rule(b.bl, b.br))
+	out = append(out, fr.footerRule()...)
+	out = append(out, line(dim(m.describeSelected())), line(dim(m.keysText())))
+	out = append(out, fr.bottom()...)
 	return strings.Join(out, "\n")
 }
 

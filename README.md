@@ -249,6 +249,17 @@ aparecer sin letras resaltadas en el título. La línea de ayuda del pie describ
 entrada seleccionada; si es una acción de plugin sin descripción, muestra su id
 (`Plugin action plugin.accion`), que es lo que se enlaza a una tecla.
 
+**Dentro de un popup de herdr (`--embedded`).** Un popup de herdr ya dibuja su
+propio marco con el título del pane; si la TUI dibuja otro encima, queda una caja
+dentro de otra. Por eso `hum palette` y `hum pick` aceptan `--embedded`: no
+dibujan marco ni título, solo la línea que separa la búsqueda y un margen de una
+columna, como las vistas nativas de herdr (*Go to*). El selector conserva su barra
+de desplazamiento en el borde derecho y la paleta gana las filas que ocupaban los
+bordes. El manifest del plugin lo pasa en los panes de la paleta y del selector.
+Sin el flag (en una terminal cualquiera) se dibuja el marco propio de siempre, con
+su título; no hay detección automática, para que lo que ves dependa de lo que
+escribes.
+
 **Por qué abre rápido.** La paleta está pensada para abrir al instante, no solo
 para funcionar:
 

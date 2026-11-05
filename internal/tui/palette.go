@@ -38,6 +38,19 @@ type PaletteOptions struct {
 	// Trace, si no es nil, recibe una marca cuando pasa algo que importa para
 	// medir la apertura (ver `hum trace`).
 	Trace func(name string)
+	// Embedded indica que la paleta corre dentro de un popup de herdr, que ya
+	// dibuja el marco y el título: no se dibuja un segundo marco encima.
+	Embedded bool
+}
+
+// chrome son las líneas que no son filas de la lista: con marco propio, borde,
+// búsqueda, 2 separadores, descripción, teclas y borde; incrustado, búsqueda,
+// separador, descripción y teclas.
+func (m PaletteModel) chrome() int {
+	if m.opts.Embedded {
+		return 4
+	}
+	return 7
 }
 
 // firstOnly llama a mark solo la primera vez que se anota cada nombre. Se
@@ -288,12 +301,12 @@ func (m PaletteModel) size() (w, h int) {
 	if h == 0 {
 		h = palDefaultHeight
 	}
-	return max(w, minWidth), max(h, palChrome+1)
+	return max(w, minWidth), max(h, m.chrome()+1)
 }
 
 func (m PaletteModel) pageSize() int {
 	_, h := m.size()
-	return h - palChrome
+	return h - m.chrome()
 }
 
 // Init espera las acciones de plugins, si las hay.

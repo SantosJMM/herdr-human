@@ -39,9 +39,15 @@ const (
 // palette despacha `hum palette [open|run]`.
 func (a *app) palette(ctx context.Context, args []string) error {
 	if len(args) == 0 {
-		return a.paletteUI(ctx)
+		return a.paletteUI(ctx, false)
 	}
 	switch args[0] {
+	case "--embedded":
+		// Dentro de un popup de herdr, que ya dibuja el marco y el título.
+		if len(args) != 1 {
+			return usagef("usage: hum palette [--embedded]")
+		}
+		return a.paletteUI(ctx, true)
 	case "open":
 		if len(args) != 1 {
 			return usagef("usage: hum palette open")
@@ -50,7 +56,7 @@ func (a *app) palette(ctx context.Context, args []string) error {
 	case "run":
 		return a.paletteRun(ctx, args[1:])
 	}
-	return usagef("usage: hum palette [open | run ...]")
+	return usagef("usage: hum palette [--embedded | open | run ...]")
 }
 
 func (a *app) pluginID() string {
@@ -83,7 +89,7 @@ func (a *app) openPane(ctx context.Context, entrypoint string) error {
 // paletteUI dibuja la paleta. Se pinta al instante con los comandos embebidos y
 // las acciones de plugins de la última vez; las acciones frescas se piden a
 // herdr en segundo plano y se incorporan cuando llegan.
-func (a *app) paletteUI(ctx context.Context) error {
+func (a *app) paletteUI(ctx context.Context, embedded bool) error {
 	if !a.interactive() {
 		return withHint(errors.New("the palette needs an interactive terminal"), `open it with the herdr key bound to the "palette" action`)
 	}
@@ -133,6 +139,8 @@ func (a *app) paletteUI(ctx context.Context) error {
 		Updates: updates,
 		Merge:   merge,
 		Trace:   a.env.Trace.Mark,
+		// Dentro de un popup de herdr no se dibuja un segundo marco.
+		Embedded: embedded,
 		Resolve: func(ctx context.Context, e palette.Entry, p palette.Prompter) ([]string, bool, error) {
 			return palette.Resolve(ctx, e, vals, p)
 		},
@@ -232,8 +240,9 @@ func (a *app) sleepFor(ctx context.Context, d time.Duration) error {
 	return sleepContext(ctx, d)
 }
 
-// frameMarker es un texto que solo aparece en el primer cuadro dibujado de la paleta.
-var frameMarker = []byte("Command palette")
+// frameMarker es un texto que está en todo cuadro de la paleta, con o sin marco
+// propio (el título solo se dibuja con marco): la línea de teclas del pie.
+var frameMarker = []byte("enter run")
 
 // tracedStdout devuelve la salida de la paleta. Con la traza apagada es la
 // salida tal cual. Encendida, la envuelve para anotar cuándo se escribe el primer

@@ -105,13 +105,13 @@ Usage:
   hum attention [--json] [--watch [--interval 5s] [--notify]] [--color M] [--full-names]
                                                 who needs you: blocked/done first,
                                                 then working; idle are only counted
-  hum pick [--local] [--machine NAME] [--full-names]
+  hum pick [--local] [--machine NAME] [--full-names] [--embedded]
                                                 interactive selector: browse, search,
                                                 filter and act on agents (needs a
                                                 terminal). "hum" alone does the same
                                                 in a terminal and prints this help
                                                 otherwise
-  hum palette                                    command palette: fuzzy-search and run every
+  hum palette [--embedded]                       command palette: fuzzy-search and run every
                                                 herdr command and every action of every
                                                 plugin (needs a terminal; bind the
                                                 "palette" action of this plugin to a key)

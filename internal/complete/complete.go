@@ -77,9 +77,9 @@ var flags = map[string][]Flag{
 	"alias":     {},
 	"go":        cached(),
 	"wait":      append(cached(), fv("--until"), fv("--timeout"), f("--notify")),
-	"pick":      append(base(), fv("--color"), f("--full-names")),
+	"pick":      append(base(), fv("--color"), f("--full-names"), f("--embedded")),
 	"new":       {fv("--name"), fv("--machine"), f("--no-focus"), fv("--timeout")},
-	"palette":   {},
+	"palette":   {f("--embedded")},
 	"machines":  {f("--json")},
 }
 
