@@ -206,9 +206,11 @@ salida son una terminal; con una tubería imprime la ayuda (código 0).
 
 ### Paleta de comandos (`hum palette`)
 
-Una paleta estilo F1: una tecla abre un popup con **todos los comandos de herdr**
-(workspaces, tabs, panes, worktrees…) y **todas las acciones de todos los
-plugins instalados**, filtrados con coincidencia difusa mientras escribes. Elige
+Una paleta estilo F1: una tecla abre un popup con **las acciones de herdr que
+tiene sentido lanzar desde una paleta** (workspaces, tabs, panes, worktrees,
+máquinas, plugins…; ver [Qué comandos incluye](#qué-comandos-incluye-y-cuáles-no))
+y **todas las acciones de todos los plugins instalados**, filtrados con
+coincidencia difusa mientras escribes. Elige
 uno, pulsa Enter y se ejecuta. Los comandos que necesitan un dato (un nombre, una
 carpeta, un workspace de destino) lo preguntan; **Esc** en una pregunta lo cancela
 todo. Si algo falla, el popup muestra el motivo en vez de cerrarse en silencio.
@@ -275,11 +277,40 @@ proceso aparte (`hum palette run`) que espera a que el popup se cierre —
 reintentando mientras herdr siga ocupado— y entonces ejecuta el comando. Si
 falla, lo avisa con una notificación de herdr.
 
-Los comandos y las acciones del catálogo están en
-`internal/palette/commands.json` (31 comandos) y viajan dentro del binario. Los
+Los comandos nativos están en `internal/palette/commands.json` (42 entradas, que
+usan 25 comandos distintos de herdr) y viajan dentro del binario. Los
 atajos se leen de `HERDR_CONFIG_PATH` o, si no está, del `config.toml` de herdr en
 la carpeta de configuración del sistema (`%APPDATA%\herdr` en Windows). Los
 recientes y la caché viven en `HERDR_PLUGIN_STATE_DIR`.
+
+#### Qué comandos incluye (y cuáles no)
+
+Las **acciones de plugins** se leen de herdr en cada apertura, así que están
+completas: instala un plugin y aparece. Los **comandos nativos de herdr**, en
+cambio, son una lista escrita a mano, porque herdr no ofrece una lista de comandos
+pensada para esto. Para que no se escape ninguno sin que nadie se entere:
+
+- Cada comando de herdr tiene que estar en `commands.json` **o** en
+  `internal/palette/excluded.go` con el motivo de dejarlo fuera.
+- El test `TestCatalogAndExclusionsAccountForEveryInstalledHerdrCommand` recorre el
+  ayuda del `herdr` instalado y falla si hay un comando en ninguna de las dos
+  listas (o una entrada que apunta a un comando que herdr ya no tiene). Con herdr
+  0.9.4-preview son 95 comandos: 25 en la paleta y 70 excluidos. Si herdr no está
+  instalado (por ejemplo, en CI) el test se salta.
+- Lo recorre desde los sustantivos (`workspace`, `pane`, `plugin`…); los comandos
+  sueltos de nivel superior (`status`, `update`, `completion`) no se comprueban.
+
+Se excluyen a propósito: lo que solo imprime información (`list`, `get`, `read`;
+la paleta ejecuta el comando aparte y nadie vería la salida), lo que usan las
+integraciones de agentes, lo destructivo (`worktree remove`, `machine remove`,
+`session delete`, `server stop`…, que conviene hacer desde una terminal donde se
+pueda confirmar), lo que necesita esa terminal, lo de argumentos libres, lo que
+instala código de terceros y lo que `hum` ya resuelve con su propio flujo
+(`pick`, `ask`, `name`, `new`).
+
+Para añadir un comando: una entrada en `commands.json` (fuentes de argumento
+`literal`, `context`, `input` y `select`; selectores `workspaces`, `tabs`,
+`agents`, `machines` y `plugins`) y quitarlo de `excluded.go` si estaba ahí.
 
 ### Crear un agente (`hum new`)
 

@@ -308,6 +308,103 @@
       "arguments": [{ "source": "select", "selector": "agents", "prompt": "agent" }]
     },
     {
+      "id": "worktree.new",
+      "title": "Worktree: New…",
+      "description": "Create a Git worktree on a new branch and open it as a workspace. Never trusts the repository for you.",
+      "command": ["worktree", "create"],
+      "arguments": [
+        { "source": "literal", "value": "--workspace" },
+        { "source": "context", "key": "workspace_id" },
+        { "source": "literal", "value": "--branch" },
+        { "source": "input", "prompt": "new branch name", "required": true },
+        { "source": "literal", "value": "--focus" }
+      ]
+    },
+    {
+      "id": "worktree.open",
+      "title": "Worktree: Open…",
+      "description": "Open the worktree of an existing branch as a workspace.",
+      "command": ["worktree", "open"],
+      "arguments": [
+        { "source": "literal", "value": "--workspace" },
+        { "source": "context", "key": "workspace_id" },
+        { "source": "literal", "value": "--branch" },
+        { "source": "input", "prompt": "branch name", "required": true },
+        { "source": "literal", "value": "--focus" }
+      ]
+    },
+    {
+      "id": "pane.move.new_tab",
+      "title": "Pane: Move to a new tab",
+      "description": "Move the pane the palette was opened over into a tab of its own.",
+      "command": ["pane", "move"],
+      "arguments": [{ "source": "context", "key": "pane_id" }, { "source": "literal", "value": "--new-tab" }]
+    },
+    {
+      "id": "pane.move.tab",
+      "title": "Pane: Move to tab…",
+      "description": "Move the pane into another tab of this workspace.",
+      "command": ["pane", "move"],
+      "arguments": [
+        { "source": "context", "key": "pane_id" },
+        { "source": "literal", "value": "--tab" },
+        { "source": "select", "selector": "tabs", "prompt": "tab", "exclude_context": "tab_id" }
+      ]
+    },
+    {
+      "id": "pane.move.new_workspace",
+      "title": "Pane: Move to a new workspace",
+      "description": "Move the pane into a workspace of its own.",
+      "command": ["pane", "move"],
+      "arguments": [{ "source": "context", "key": "pane_id" }, { "source": "literal", "value": "--new-workspace" }]
+    },
+    {
+      "id": "pane.move.workspace",
+      "title": "Pane: Move to workspace…",
+      "description": "Move the pane into another workspace.",
+      "command": ["pane", "move"],
+      "arguments": [
+        { "source": "context", "key": "pane_id" },
+        { "source": "literal", "value": "--workspace" },
+        { "source": "select", "selector": "workspaces", "prompt": "workspace", "exclude_context": "workspace_id" }
+      ]
+    },
+    {
+      "id": "machine.enable",
+      "title": "Machine: Enable…",
+      "description": "Enable a saved SSH machine so herdr connects to it.",
+      "command": ["machine", "enable"],
+      "arguments": [{ "source": "select", "selector": "machines", "prompt": "machine to enable" }]
+    },
+    {
+      "id": "machine.disable",
+      "title": "Machine: Disable…",
+      "description": "Disable a saved SSH machine. Its agents stop appearing; the machine itself is untouched.",
+      "command": ["machine", "disable"],
+      "arguments": [{ "source": "select", "selector": "machines", "prompt": "machine to disable" }]
+    },
+    {
+      "id": "plugin.enable",
+      "title": "Plugin: Enable…",
+      "description": "Enable an installed plugin.",
+      "command": ["plugin", "enable"],
+      "arguments": [{ "source": "select", "selector": "plugins", "prompt": "plugin to enable" }]
+    },
+    {
+      "id": "plugin.disable",
+      "title": "Plugin: Disable…",
+      "description": "Disable an installed plugin. Its actions leave this palette until you enable it again.",
+      "command": ["plugin", "disable"],
+      "arguments": [{ "source": "select", "selector": "plugins", "prompt": "plugin to disable" }]
+    },
+    {
+      "id": "server.reload_agent_manifests",
+      "title": "Agents: Reload manifests",
+      "description": "Reload the agent detection manifests in the running server.",
+      "command": ["server", "reload-agent-manifests"],
+      "arguments": []
+    },
+    {
       "id": "config.reload",
       "title": "Config: Reload",
       "description": "Reload config.toml in the running server.",

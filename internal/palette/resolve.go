@@ -144,6 +144,30 @@ func SelectorChoices(ctx context.Context, l Lister, selector string, o Origin, e
 		for _, a := range items {
 			choices = append(choices, Choice{Value: a.PaneID, Label: agentLabel(a)})
 		}
+	case "machines":
+		items, err := l.Machines(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, m := range items {
+			state := "disabled"
+			if m.Enabled {
+				state = "enabled"
+			}
+			choices = append(choices, Choice{Value: m.ID, Label: fmt.Sprintf("%s (%s) — %s", labelOrID(m.Label, m.ID), m.Target, state)})
+		}
+	case "plugins":
+		items, err := l.Plugins(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, p := range items {
+			state := "disabled"
+			if p.Enabled {
+				state = "enabled"
+			}
+			choices = append(choices, Choice{Value: p.PluginID, Label: fmt.Sprintf("%s (%s) — %s", labelOrID(p.Name, p.PluginID), p.PluginID, state)})
+		}
 	default:
 		return nil, fmt.Errorf("unknown selector %q", selector)
 	}
@@ -187,4 +211,14 @@ func (h HerdrLister) Agents(ctx context.Context) ([]Agent, error) {
 	}
 	err := herdr.Call(ctx, h.Runner, "", []string{"agent", "list"}, &res)
 	return res.Agents, err
+}
+
+// Machines lista los perfiles de máquinas SSH guardados.
+func (h HerdrLister) Machines(ctx context.Context) ([]herdr.Profile, error) {
+	return herdr.ListProfiles(ctx, h.Runner)
+}
+
+// Plugins lista los plugins instalados, habilitados o no.
+func (h HerdrLister) Plugins(ctx context.Context) ([]PluginInfo, error) {
+	return ListPlugins(ctx, h.Runner)
 }

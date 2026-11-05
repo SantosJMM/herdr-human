@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+
+	"github.com/SantosJMM/herdr-human/internal/herdr"
 )
 
 // Origin es el lugar de herdr desde donde se abrió la paleta. La paleta vive en
@@ -101,6 +103,8 @@ type Lister interface {
 	Workspaces(ctx context.Context) ([]Workspace, error)
 	Tabs(ctx context.Context, workspaceID string) ([]Tab, error)
 	Agents(ctx context.Context) ([]Agent, error)
+	Machines(ctx context.Context) ([]herdr.Profile, error)
+	Plugins(ctx context.Context) ([]PluginInfo, error)
 }
 
 // Context entrega los valores de contexto de un comando. Los vecinos se

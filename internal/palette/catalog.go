@@ -17,7 +17,7 @@ const supportedSchemaVersion = 1
 var (
 	staticContextKeys   = []string{"pane_id", "tab_id", "workspace_id", "cwd"}
 	computedContextKeys = []string{"next_workspace_id", "previous_workspace_id", "next_tab_id", "previous_tab_id"}
-	selectorNames       = []string{"workspaces", "tabs", "agents"}
+	selectorNames       = []string{"workspaces", "tabs", "agents", "machines", "plugins"}
 )
 
 type catalogFile struct {

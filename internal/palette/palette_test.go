@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/SantosJMM/herdr-human/internal/herdr"
 	"github.com/SantosJMM/herdr-human/internal/herdrtest"
 )
 
@@ -31,8 +32,8 @@ func TestNativeCatalogShipsWithTheBinary(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(entries) != 31 {
-		t.Fatalf("want the 31 commands of the original catalog, got %d", len(entries))
+	if len(entries) != 42 {
+		t.Fatalf("want the 31 commands of the original catalog plus the 11 added here, got %d", len(entries))
 	}
 	seen := map[string]bool{}
 	for _, e := range entries {
@@ -496,7 +497,7 @@ func TestShippedCatalogOnlyDrivesKnownHerdrNouns(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	nouns := []string{"workspace", "tab", "pane", "agent", "server"}
+	nouns := []string{"workspace", "worktree", "tab", "pane", "agent", "server", "machine", "plugin"}
 	for _, e := range entries {
 		if !slices.Contains(nouns, e.Command[0]) {
 			t.Errorf("unexpected noun in %s: %s", e.ID, e.Command[0])
@@ -536,5 +537,107 @@ func TestSearchOffsetsPointAtSourceAndTitle(t *testing.T) {
 	so, to := e.SearchOffsets()
 	if string(runes[so:so+len([]rune(e.Source))]) != e.Source || string(runes[to:to+len([]rune(e.Title))]) != e.Title {
 		t.Errorf("offsets %d,%d do not land on the source and title of %q", so, to, e.SearchText())
+	}
+}
+
+func (f *fakeLists) Machines(context.Context) ([]herdr.Profile, error) {
+	f.calls++
+	return []herdr.Profile{{ID: "m1", Label: "odoous", Target: "odoo@host", Enabled: true}, {ID: "m2", Target: "x@y"}}, f.err
+}
+
+func (f *fakeLists) Plugins(context.Context) ([]PluginInfo, error) {
+	f.calls++
+	return []PluginInfo{{PluginID: "a.one", Name: "One", Enabled: true}, {PluginID: "b.two"}}, f.err
+}
+
+func TestMachineAndPluginChoicesShowTheirState(t *testing.T) {
+	machines, err := SelectorChoices(context.Background(), &fakeLists{}, "machines", Origin{}, "")
+	if err != nil || len(machines) != 2 {
+		t.Fatal(machines, err)
+	}
+	if machines[0].Value != "m1" || machines[0].Label != "odoous (odoo@host) — enabled" {
+		t.Errorf("got %+v", machines[0])
+	}
+	if machines[1].Label != "m2 (x@y) — disabled" {
+		t.Errorf("a machine without a label shows its id, got %+v", machines[1])
+	}
+	plugins, err := SelectorChoices(context.Background(), &fakeLists{}, "plugins", Origin{}, "")
+	if err != nil || len(plugins) != 2 {
+		t.Fatal(plugins, err)
+	}
+	if plugins[0].Value != "a.one" || plugins[0].Label != "One (a.one) — enabled" || plugins[1].Label != "b.two (b.two) — disabled" {
+		t.Errorf("got %+v", plugins)
+	}
+}
+
+// Toda fuente de selección que use el catálogo debe estar implementada: si se
+// añade una a commands.json sin código, esto falla en vez de fallar al elegirla.
+func TestEverySelectorUsedByTheCatalogIsImplemented(t *testing.T) {
+	entries, err := Native()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		for _, a := range e.Arguments {
+			if a.Source != SourceSelect {
+				continue
+			}
+			if _, err := SelectorChoices(context.Background(), &fakeLists{}, a.Selector, Origin{WorkspaceID: "w"}, a.ExcludeContext); err != nil {
+				t.Errorf("%s uses selector %q, which fails: %v", e.ID, a.Selector, err)
+			}
+		}
+	}
+}
+
+func TestNewCommandsBuildTheExpectedHerdrLines(t *testing.T) {
+	entries, _ := Native()
+	byID := map[string]Entry{}
+	for _, e := range entries {
+		byID[e.ID] = e
+	}
+	vals := &Context{Origin: Origin{PaneID: "w1:p3", TabID: "w1:t2", WorkspaceID: "w1"}, Lists: &fakeLists{
+		ws:   []Workspace{{ID: "w1", Number: 1}, {ID: "w2", Label: "other", Number: 2}},
+		tabs: []Tab{{ID: "w1:t2", WorkspaceID: "w1", Number: 2}, {ID: "w1:t5", WorkspaceID: "w1", Number: 5}},
+	}}
+	for _, tt := range []struct {
+		id      string
+		answers *scripted
+		want    []string
+	}{
+		{"worktree.new", &scripted{inputs: []string{"feat/x"}}, []string{"worktree", "create", "--workspace", "w1", "--branch", "feat/x", "--focus"}},
+		{"worktree.open", &scripted{inputs: []string{"main"}}, []string{"worktree", "open", "--workspace", "w1", "--branch", "main", "--focus"}},
+		{"pane.move.new_tab", &scripted{}, []string{"pane", "move", "w1:p3", "--new-tab"}},
+		{"pane.move.new_workspace", &scripted{}, []string{"pane", "move", "w1:p3", "--new-workspace"}},
+		{"pane.move.tab", &scripted{choices: []string{"w1:t5"}}, []string{"pane", "move", "w1:p3", "--tab", "w1:t5"}},
+		{"pane.move.workspace", &scripted{choices: []string{"w2"}}, []string{"pane", "move", "w1:p3", "--workspace", "w2"}},
+		{"machine.enable", &scripted{choices: []string{"m2"}}, []string{"machine", "enable", "m2"}},
+		{"machine.disable", &scripted{choices: []string{"m1"}}, []string{"machine", "disable", "m1"}},
+		{"plugin.enable", &scripted{choices: []string{"b.two"}}, []string{"plugin", "enable", "b.two"}},
+		{"plugin.disable", &scripted{choices: []string{"a.one"}}, []string{"plugin", "disable", "a.one"}},
+		{"server.reload_agent_manifests", &scripted{}, []string{"server", "reload-agent-manifests"}},
+	} {
+		e, ok := byID[tt.id]
+		if !ok {
+			t.Errorf("%s is missing from the catalog", tt.id)
+			continue
+		}
+		got, ok, err := Resolve(context.Background(), e, vals, tt.answers)
+		if err != nil || !ok || !slices.Equal(got, tt.want) {
+			t.Errorf("%s = %v (ok=%v err=%v), want %v", tt.id, got, ok, err, tt.want)
+		}
+	}
+	// "Mover a otra pestaña" no ofrece la pestaña en la que ya está el pane.
+	p := &scripted{choices: []string{"w1:t5"}}
+	_, _, _ = Resolve(context.Background(), byID["pane.move.tab"], vals, p)
+	if strings.Contains(p.asked[0], "w1:t2") {
+		t.Errorf("the current tab must not be offered: %v", p.asked)
+	}
+	// Ninguna entrada de worktree confía en el repositorio por la persona.
+	for _, id := range []string{"worktree.new", "worktree.open"} {
+		for _, a := range byID[id].Arguments {
+			if a.Value == "--trust-repository" {
+				t.Errorf("%s must never pass --trust-repository", id)
+			}
+		}
 	}
 }
