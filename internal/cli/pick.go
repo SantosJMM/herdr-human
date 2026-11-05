@@ -17,15 +17,17 @@ import (
 func (a *app) selector(ctx context.Context, args []string) error {
 	var cf commonFlags
 	var vf viewFlags
+	var embedded bool
 	fs := newFlagSet("pick")
 	cf.register(fs, false)
 	vf.register(fs)
+	fs.BoolVar(&embedded, "embedded", false, "draw no frame or title: the herdr popup already has its own")
 	rest, err := parse(fs, args)
 	if err != nil {
 		return err
 	}
 	if len(rest) != 0 {
-		return usagef("usage: hum pick [--local] [--machine NAME] [--full-names]")
+		return usagef("usage: hum pick [--local] [--machine NAME] [--full-names] [--embedded]")
 	}
 	if !a.interactive() {
 		return withHint(errors.New("pick needs an interactive terminal"), `use "hum ls" for a list you can pipe`)
@@ -50,9 +52,10 @@ func (a *app) selector(ctx context.Context, args []string) error {
 
 	t, ok, err := tui.Run(sctx, a.env.Stdin, a.env.Stdout, tui.Options{
 		Style: style, FullNames: vf.fullNames, Machines: stream.Machines, Updates: stream.Updates,
-		Actions: pickActions{svc: actions.Service{Runner: a.env.Runner}, copy: a.env.Copy},
-		Ctx:     sctx,
-		Branch:  gitinfo.Branch,
+		Actions:  pickActions{svc: actions.Service{Runner: a.env.Runner}, copy: a.env.Copy},
+		Ctx:      sctx,
+		Branch:   gitinfo.Branch,
+		Embedded: embedded,
 		Refresh: func(ctx context.Context, machine string) ([]inventory.Target, error) {
 			return inventory.LoadMachine(ctx, a.env.Runner, machine, cf.serverTimeout)
 		},

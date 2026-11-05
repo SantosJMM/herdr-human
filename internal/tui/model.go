@@ -26,7 +26,11 @@ const (
 	minWidth      = 14
 	chromeLines   = 8 // borde, búsqueda, 2 separadores, 3 de pie y borde
 	bodyTop       = 3 // líneas por encima del cuerpo (para traducir clics)
-	wheelStep     = 3
+
+	// Lo mismo cuando el marco lo dibuja herdr.
+	embeddedChromeLines = 5
+	embeddedBodyTop     = 2
+	wheelStep           = 3
 )
 
 // Options son los datos y el aspecto del selector.
@@ -56,6 +60,10 @@ type Options struct {
 	// Branch devuelve la rama de git de una carpeta del servidor local ("" si no
 	// la hay). Solo se pregunta por workspaces locales y una vez por carpeta.
 	Branch func(dir string) string
+
+	// Embedded indica que el selector corre dentro de un popup de herdr, que ya
+	// dibuja el marco y el título: no se dibuja un segundo marco encima.
+	Embedded bool
 }
 
 // RefreshMsg es el resultado de volver a consultar una máquina.
@@ -96,6 +104,8 @@ type Model struct {
 	inv  inventory.Inventory
 	st   *ui.Style
 	full bool
+	// embedded: el marco y el título los dibuja el popup de herdr (ver frame).
+	embedded bool
 
 	width, height int
 
@@ -149,7 +159,7 @@ type Model struct {
 
 // New crea el selector con el cursor en el primer agente.
 func New(o Options) Model {
-	m := Model{inv: o.Inventory, st: o.Style, full: o.FullNames, width: defaultWidth, height: defaultHeight,
+	m := Model{inv: o.Inventory, st: o.Style, full: o.FullNames, embedded: o.Embedded, width: defaultWidth, height: defaultHeight,
 		act: o.Actions, ctx: o.Ctx, refresh: o.Refresh, branchOf: o.Branch, branches: map[string]string{}}
 	if m.ctx == nil {
 		m.ctx = context.Background()
@@ -415,7 +425,24 @@ func subsequence(hay, needle string) bool {
 	return true
 }
 
-func (m Model) bodyHeight() int { return max(m.height, chromeLines+1) - chromeLines }
+// chrome son las líneas que no son filas: con marco propio, borde, búsqueda,
+// 2 separadores, 3 de pie y borde; incrustado, búsqueda, separador y 3 de pie.
+func (m Model) chrome() int {
+	if m.embedded {
+		return embeddedChromeLines
+	}
+	return chromeLines
+}
+
+// bodyOffset es la fila donde empieza el cuerpo (para traducir clics).
+func (m Model) bodyOffset() int {
+	if m.embedded {
+		return embeddedBodyTop
+	}
+	return bodyTop
+}
+
+func (m Model) bodyHeight() int { return max(m.height, m.chrome()+1) - m.chrome() }
 
 // selected devuelve la posición en rows del agente seleccionado, o -1.
 func (m Model) selected() int {
@@ -623,8 +650,8 @@ func (m Model) onMouse(msg tea.MouseMsg) Model {
 	case tea.MouseButtonWheelUp:
 		m.move(m.cursor - wheelStep)
 	case tea.MouseButtonLeft:
-		line := m.top + msg.Y - bodyTop
-		if msg.Y < bodyTop || msg.Y-bodyTop >= m.bodyHeight() || line < 0 || line >= len(m.rows) {
+		line := m.top + msg.Y - m.bodyOffset()
+		if msg.Y < m.bodyOffset() || msg.Y-m.bodyOffset() >= m.bodyHeight() || line < 0 || line >= len(m.rows) {
 			return m
 		}
 		for n, ri := range m.agents {

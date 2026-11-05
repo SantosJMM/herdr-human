@@ -18,6 +18,7 @@ import (
 	"github.com/SantosJMM/herdr-human/internal/herdr"
 	"github.com/SantosJMM/herdr-human/internal/inventory"
 	"github.com/SantosJMM/herdr-human/internal/resolve"
+	"github.com/SantosJMM/herdr-human/internal/trace"
 	"github.com/SantosJMM/herdr-human/internal/ui"
 )
 
@@ -79,6 +80,16 @@ type Env struct {
 	Now      func() time.Time
 	// ConfigDir es la carpeta donde se guardan los alias; vacía los desactiva.
 	ConfigDir string
+	// Detach lanza este mismo programa con esos argumentos como un proceso
+	// independiente que sigue vivo cuando este termina; nulo si la plataforma no
+	// lo permite. La paleta lo usa para ejecutar lo elegido tras cerrar su popup.
+	Detach func(args []string) error
+	// Trace anota los tiempos de arranque cuando la traza está encendida (ver
+	// `hum trace`); nulo la apaga, y todas sus llamadas son seguras con nulo.
+	Trace *trace.Tracer
+	// CheckConfig ejecuta `herdr config check` sobre el archivo dado y devuelve lo
+	// que imprime; nulo desactiva el cambio de atajos, que no se aplica sin validar.
+	CheckConfig func(ctx context.Context, path string) (string, error)
 }
 
 const usageText = `hum - friendly commands for herdr
@@ -97,12 +108,25 @@ Usage:
   hum attention [--json] [--watch [--interval 5s] [--notify]] [--color M] [--full-names]
                                                 who needs you: blocked/done first,
                                                 then working; idle are only counted
-  hum pick [--local] [--machine NAME] [--full-names]
+  hum pick [--local] [--machine NAME] [--full-names] [--embedded]
                                                 interactive selector: browse, search,
                                                 filter and act on agents (needs a
                                                 terminal). "hum" alone does the same
                                                 in a terminal and prints this help
                                                 otherwise
+  hum palette [--embedded]                       command palette: fuzzy-search and run every
+                                                herdr command and every action of every
+                                                plugin (needs a terminal; bind the
+                                                "palette" action of this plugin to a key)
+  hum keys ls [--all] | set <entry> <key> [--force] | rm <entry>
+                                                shortcuts of the palette entries in herdr's
+                                                config.toml (the palette does the same with
+                                                ctrl+k). Every change is checked with
+                                                "herdr config check" on a copy first, backed
+                                                up and applied atomically
+  hum trace on|off|show|clear                    timing trace of the popups (to measure how long
+                                                they take to draw their first frame); "show"
+                                                prints the last lines of the log
   hum new <kind> [folder] [--name NAME] [--machine NAME] [--no-focus] [--timeout MS]
                                                 open a tab, start an agent in it and
                                                 name it; prints machine/pane. Without
@@ -232,6 +256,14 @@ func (a *app) dispatch(ctx context.Context, args []string) error {
 		return a.selector(ctx, rest)
 	case "new":
 		return a.newAgent(ctx, rest)
+	case "palette":
+		return a.palette(ctx, rest)
+	case "popup":
+		return a.popup(ctx, rest) // interno: lo usa el manifest del plugin
+	case "trace":
+		return a.traceCmd(rest)
+	case "keys":
+		return a.keysCmd(ctx, rest)
 	case "completion":
 		return a.completion(ctx, rest)
 	case "__complete":

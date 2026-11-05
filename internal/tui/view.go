@@ -28,19 +28,19 @@ func (m Model) View() string {
 	w := max(m.width, minWidth)
 	cw := w - 4
 	bh := m.bodyHeight()
-	b := boxFor(m.st)
+	fr := newFrame(m.st, w, m.embedded)
+	b := fr.b
 	g := m.st.Glyphs()
-	dim := func(s string) string { return m.st.Paint(ui.RoleDim, s) }
+	dim := fr.dim
 
 	fit := func(s string) string { return ui.PadRight(ui.Truncate(s, cw, g.Ellipsis), cw) }
-	line := func(inner string) string { return dim(b.v) + " " + fit(inner) + " " + dim(b.v) }
-	rule := func(l, r string) string { return dim(l + strings.Repeat(b.h, w-2) + r) }
+	line := func(inner string) string { return fr.side() + " " + fit(inner) + " " + fr.side() }
 
-	title := " Talk to "
-	out := []string{dim(b.tl + title + strings.Repeat(b.h, max(0, w-2-ui.VisibleLen(title))) + b.tr)}
+	// Incrustado en un popup de herdr, el marco y el título los dibuja herdr.
+	out := fr.top(" Talk to ")
 
 	left, right := m.searchLine(b)
-	out = append(out, line(ui.FitRow(cw, left, right, g.Ellipsis)), rule(b.lt, b.rt))
+	out = append(out, line(ui.FitRow(cw, left, right, g.Ellipsis)), fr.rule())
 
 	// Barra de desplazamiento: un tramo del borde derecho del cuerpo.
 	thumbPos, thumbLen := -1, 0
@@ -56,14 +56,14 @@ func (m Model) View() string {
 		bh = 0
 	}
 	for i := 0; i < bh; i++ {
-		edge := b.v
+		edge := fr.sideChar()
 		if thumbPos >= 0 && i >= thumbPos && i < thumbPos+thumbLen {
 			edge = b.thumb
 		}
 		idx := m.top + i
 		switch {
 		case idx < len(m.rows):
-			out = append(out, m.bodyLine(m.rows[idx], idx == sel, cw, b, dim(b.v), dim(edge)))
+			out = append(out, m.bodyLine(m.rows[idx], idx == sel, cw, b, fr.side(), dim(edge)))
 		case idx == len(m.rows) && len(m.agents) == 0:
 			out = append(out, line(dim(m.emptyText())))
 		default:
@@ -71,9 +71,10 @@ func (m Model) View() string {
 		}
 	}
 
-	out = append(out, rule(b.lt, b.rt))
+	out = append(out, fr.footerRule()...)
 	crumb, path := m.footerInfo()
-	out = append(out, line(m.st.Bold(crumb)), line(m.infoLine(cw, path)), line(dim(m.keysText())), rule(b.bl, b.br))
+	out = append(out, line(m.st.Bold(crumb)), line(m.infoLine(cw, path)), line(dim(m.keysText())))
+	out = append(out, fr.bottom()...)
 	return strings.Join(out, "\n")
 }
 
