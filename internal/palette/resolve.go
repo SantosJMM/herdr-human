@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 
+	"github.com/SantosJMM/herdr-human/internal/actions"
 	"github.com/SantosJMM/herdr-human/internal/herdr"
 )
 
@@ -55,7 +57,13 @@ func Resolve(ctx context.Context, e Entry, vals *Context, p Prompter) (argv []st
 			if err != nil || !ok {
 				return nil, false, err
 			}
-			argv = append(argv, text)
+			switch {
+			case a.Flag == "":
+				argv = append(argv, text)
+			case strings.TrimSpace(text) != "":
+				argv = append(argv, a.Flag, text)
+			}
+			// Un valor opcional vacío no añade nada: ni la opción ni el valor.
 
 		case SourceSelect:
 			choices, err := SelectorChoices(ctx, vals.Lists, a.Selector, vals.Origin, a.ExcludeContext)
@@ -115,6 +123,15 @@ func labelOrID(label, id string) string {
 // ejemplo, no ofrecer el workspace en el que ya estás para "cambiar de workspace").
 // Las listas se piden a herdr en este momento: ninguna se carga al abrir.
 func SelectorChoices(ctx context.Context, l Lister, selector string, o Origin, excludeKey string) ([]Choice, error) {
+	// Los tipos de agente son una lista fija que mantiene hum, la misma que usa
+	// `hum new`: no hace falta herdr para ofrecerla ni se copia aquí.
+	if selector == "agent_kinds" {
+		choices := make([]Choice, len(actions.Kinds))
+		for i, k := range actions.Kinds {
+			choices[i] = Choice{Value: k, Label: k}
+		}
+		return choices, nil
+	}
 	if l == nil {
 		return nil, errors.New("no herdr connection to list " + selector)
 	}

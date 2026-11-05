@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"strings"
 )
 
 //go:embed commands.json
@@ -17,7 +18,7 @@ const supportedSchemaVersion = 1
 var (
 	staticContextKeys   = []string{"pane_id", "tab_id", "workspace_id", "cwd"}
 	computedContextKeys = []string{"next_workspace_id", "previous_workspace_id", "next_tab_id", "previous_tab_id"}
-	selectorNames       = []string{"workspaces", "tabs", "agents", "machines", "plugins"}
+	selectorNames       = []string{"workspaces", "tabs", "agents", "machines", "plugins", "agent_kinds"}
 )
 
 type catalogFile struct {
@@ -31,10 +32,16 @@ type catalogRecord struct {
 	Description string     `json:"description"`
 	Command     []string   `json:"command"`
 	Arguments   []Argument `json:"arguments"`
+	// Runner dice quién ejecuta el comando: vacío o "herdr" es el CLI de herdr;
+	// "hum" es un comando de hum.
+	Runner string `json:"runner"`
 }
 
-// Native devuelve los comandos nativos que trae el binario. Una entrada mal
-// formada o repetida se descarta en vez de tumbar toda la paleta.
+// humSource es la etiqueta de origen de los comandos de hum.
+const humSource = "hum"
+
+// Native devuelve los comandos que trae el binario, de herdr y de hum. Una
+// entrada mal formada o repetida se descarta en vez de tumbar toda la paleta.
 func Native() ([]Entry, error) { return parseCatalog(catalogJSON) }
 
 func parseCatalog(data []byte) ([]Entry, error) {
@@ -53,9 +60,13 @@ func parseCatalog(data []byte) ([]Entry, error) {
 			continue
 		}
 		seen[c.ID] = true
+		kind, source := KindNative, nativeSource
+		if c.Runner == "hum" {
+			kind, source = KindHum, humSource
+		}
 		entries = append(entries, Entry{
-			Kind: KindNative, ID: c.ID, Title: c.Title, Description: c.Description,
-			Source: nativeSource, Command: c.Command, Arguments: c.Arguments,
+			Kind: kind, ID: c.ID, Title: c.Title, Description: c.Description,
+			Source: source, Command: c.Command, Arguments: c.Arguments,
 		})
 	}
 	return entries, nil
@@ -63,6 +74,9 @@ func parseCatalog(data []byte) ([]Entry, error) {
 
 func validRecord(c catalogRecord) bool {
 	if c.ID == "" || c.Title == "" || len(c.Command) == 0 || slices.Contains(c.Command, "") {
+		return false
+	}
+	if c.Runner != "" && c.Runner != "herdr" && c.Runner != "hum" {
 		return false
 	}
 	for _, a := range c.Arguments {
@@ -80,6 +94,10 @@ func validArgument(a Argument) bool {
 	case SourceContext:
 		return slices.Contains(staticContextKeys, a.Key) || slices.Contains(computedContextKeys, a.Key)
 	case SourceInput:
+		// Una opción con valor solo tiene sentido si el argumento puede quedar vacío.
+		if a.Flag != "" && (!strings.HasPrefix(a.Flag, "--") || a.Required) {
+			return false
+		}
 		return a.Prompt != "" && (a.DefaultContext == "" || slices.Contains(staticContextKeys, a.DefaultContext))
 	case SourceSelect:
 		return slices.Contains(selectorNames, a.Selector) && a.Prompt != "" &&

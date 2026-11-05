@@ -32,12 +32,13 @@ func TestNativeCatalogShipsWithTheBinary(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(entries) != 42 {
-		t.Fatalf("want the 31 commands of the original catalog plus the 11 added here, got %d", len(entries))
+	if len(entries) != 46 {
+		t.Fatalf("want the 31 commands of the original catalog plus the 11 added here and the 4 of hum, got %d", len(entries))
 	}
 	seen := map[string]bool{}
 	for _, e := range entries {
-		if e.Kind != KindNative || e.Source != "Herdr" || seen[e.ID] {
+		source := map[Kind]string{KindNative: "Herdr", KindHum: "hum"}[e.Kind]
+		if source == "" || e.Source != source || seen[e.ID] {
 			t.Fatalf("bad or repeated entry %+v", e)
 		}
 		seen[e.ID] = true
@@ -499,7 +500,7 @@ func TestShippedCatalogOnlyDrivesKnownHerdrNouns(t *testing.T) {
 	}
 	nouns := []string{"workspace", "worktree", "tab", "pane", "agent", "server", "machine", "plugin"}
 	for _, e := range entries {
-		if !slices.Contains(nouns, e.Command[0]) {
+		if e.Kind == KindNative && !slices.Contains(nouns, e.Command[0]) {
 			t.Errorf("unexpected noun in %s: %s", e.ID, e.Command[0])
 		}
 	}

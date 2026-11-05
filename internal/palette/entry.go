@@ -19,6 +19,9 @@ const (
 	KindPlugin Kind = iota
 	// KindNative es un comando del propio herdr descrito en commands.json.
 	KindNative
+	// KindHum es un comando de hum (no de herdr), con la misma descripción de
+	// argumentos que los nativos; se ejecuta con `hum palette run --hum`.
+	KindHum
 )
 
 // nativeSource es la etiqueta de origen de los comandos nativos.
@@ -41,6 +44,9 @@ type Argument struct {
 	DefaultContext string `json:"default_context,omitempty"`
 	Required       bool   `json:"required,omitempty"`
 	Selector       string `json:"selector,omitempty"`
+	// Flag, en un input, es la opción que lleva el valor: si la respuesta queda
+	// vacía no se añade ni la opción ni el valor (un argumento opcional).
+	Flag           string `json:"flag,omitempty"`
 	ExcludeContext string `json:"exclude_context,omitempty"`
 }
 

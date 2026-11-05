@@ -81,6 +81,9 @@ func CatalogCommands() (map[string][]string, error) {
 	}
 	out := map[string][]string{}
 	for _, e := range entries {
+		if e.Kind != KindNative {
+			continue // los comandos de hum no son comandos de herdr
+		}
 		key := strings.Join(e.Command, " ")
 		out[key] = append(out[key], e.ID)
 	}

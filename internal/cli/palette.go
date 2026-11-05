@@ -33,7 +33,7 @@ const (
 	// verdad hay otro popup abierto, no tiene sentido insistir más.
 	openMaxAttempts = 10
 	uiBusyCode      = "ui_busy"
-	paletteRunUsage = "usage: hum palette run --action PLUGIN ACTION | --command HERDR_ARGS..."
+	paletteRunUsage = "usage: hum palette run --action PLUGIN ACTION | --command HERDR_ARGS... | --hum HUM_ARGS..."
 )
 
 // palette despacha `hum palette [open|run]`.
@@ -166,9 +166,12 @@ func (a *app) dispatchPalette(res tui.PaletteResult) error {
 		return errors.New("this build cannot start a background process")
 	}
 	args := []string{"palette", "run"}
-	if res.Entry.Kind == palette.KindNative {
+	switch res.Entry.Kind {
+	case palette.KindNative:
 		args = append(append(args, "--command"), res.Argv...)
-	} else {
+	case palette.KindHum:
+		args = append(append(args, "--hum"), res.Argv...)
+	default:
 		args = append(args, "--action", res.Entry.PluginID, res.Entry.ActionID)
 	}
 	return a.env.Detach(args)
@@ -177,30 +180,57 @@ func (a *app) dispatchPalette(res tui.PaletteResult) error {
 // paletteRun ejecuta lo que eligió la paleta, ya sin el popup. Si falla, avisa
 // con una notificación de herdr, porque nadie mira la terminal de este proceso.
 func (a *app) paletteRun(ctx context.Context, args []string) error {
-	var argv []string
+	var run func() error
 	var label string
 	switch {
 	case len(args) == 3 && args[0] == "--action":
-		argv = []string{"plugin", "action", "invoke", args[2], "--plugin", args[1]}
+		argv := []string{"plugin", "action", "invoke", args[2], "--plugin", args[1]}
+		run = func() error { _, err := herdr.Text(ctx, a.env.Runner, "", argv); return err }
 		label = args[1] + "." + args[2]
 	case len(args) >= 2 && args[0] == "--command":
-		argv = args[1:]
+		argv := args[1:]
+		run = func() error { _, err := herdr.Text(ctx, a.env.Runner, "", argv); return err }
 		label = "herdr " + strings.Join(argv, " ")
+	case len(args) >= 2 && args[0] == "--hum":
+		// Un comando de hum, en este mismo proceso. `palette` queda fuera para que
+		// un argumento mal armado no abra otra paleta dentro de la paleta.
+		if args[1] == "palette" {
+			return usagef("%s", paletteRunUsage)
+		}
+		argv := args[1:]
+		run = func() error { return a.dispatch(ctx, argv) }
+		label = "hum " + strings.Join(argv, " ")
 	default:
 		return usagef("%s", paletteRunUsage)
 	}
 
-	err := a.herdrWhenFree(ctx, argv, runFirstDelay, runMaxAttempts)
-	if err != nil {
+	err := a.retryWhileBusy(ctx, runFirstDelay, runMaxAttempts, run)
+	if err != nil && !humSettled(err) {
 		_, _ = herdr.Text(ctx, a.env.Runner, "", []string{"notification", "show", "Command palette", "--body", label + " failed: " + err.Error()})
 	}
 	return err
+}
+
+// humSettled dice si un comando de hum terminó como debía aunque no devolviera 0:
+// `hum wait` sale con 3 si el agente quedó esperando a la persona y con 4 si se
+// acabó el plazo, y ya avisó por su cuenta; no es un fallo que notificar de nuevo.
+func humSettled(err error) bool {
+	var xe *exitError
+	return errors.As(err, &xe) && (xe.code == exitBlocked || xe.code == exitTimeout)
 }
 
 // herdrWhenFree ejecuta un comando de herdr y, mientras herdr conteste que está
 // ocupado con un popup, lo reintenta hasta attempts veces. first es la espera
 // antes del primer intento (0 = de inmediato).
 func (a *app) herdrWhenFree(ctx context.Context, argv []string, first time.Duration, attempts int) error {
+	return a.retryWhileBusy(ctx, first, attempts, func() error {
+		_, err := herdr.Text(ctx, a.env.Runner, "", argv)
+		return err
+	})
+}
+
+// retryWhileBusy repite run mientras falle porque herdr tiene un popup abierto.
+func (a *app) retryWhileBusy(ctx context.Context, first time.Duration, attempts int, run func() error) error {
 	delay := first
 	var err error
 	for range attempts {
@@ -209,8 +239,7 @@ func (a *app) herdrWhenFree(ctx context.Context, argv []string, first time.Durat
 				return err
 			}
 		}
-		_, err = herdr.Text(ctx, a.env.Runner, "", argv)
-		if !isUIBusy(err) {
+		if err = run(); !isUIBusy(err) {
 			return err
 		}
 		delay = busyRetryDelay

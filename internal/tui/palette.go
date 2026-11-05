@@ -436,7 +436,7 @@ func (m PaletteModel) cancel() (tea.Model, tea.Cmd) {
 // pick actúa sobre la entrada elegida: una acción de plugin se devuelve tal cual
 // y un comando nativo pasa a resolver sus argumentos.
 func (m *PaletteModel) pick(e palette.Entry) (tea.Model, tea.Cmd) {
-	if e.Kind != palette.KindNative || m.opts.Resolve == nil {
+	if e.Kind == palette.KindPlugin || m.opts.Resolve == nil {
 		m.result = PaletteResult{Entry: e, Chosen: true}
 		return *m, tea.Quit
 	}

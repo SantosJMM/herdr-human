@@ -405,6 +405,52 @@
       "arguments": []
     },
     {
+      "id": "hum.agent.new",
+      "title": "Agent: New…",
+      "description": "Open a tab, start an agent in it and name it (hum new). Leave the name empty to use the kind.",
+      "runner": "hum",
+      "command": ["new"],
+      "arguments": [
+        { "source": "select", "selector": "agent_kinds", "prompt": "agent kind" },
+        { "source": "input", "prompt": "folder", "default_context": "cwd", "required": true },
+        { "source": "input", "prompt": "name (optional)", "flag": "--name" }
+      ]
+    },
+    {
+      "id": "hum.agent.say",
+      "title": "Agent: Say…",
+      "description": "Send a message to an agent (hum say).",
+      "runner": "hum",
+      "command": ["say"],
+      "arguments": [
+        { "source": "select", "selector": "agents", "prompt": "agent" },
+        { "source": "literal", "value": "--" },
+        { "source": "input", "prompt": "message", "required": true }
+      ]
+    },
+    {
+      "id": "hum.agent.name",
+      "title": "Agent: Rename…",
+      "description": "Give an agent and its pane a stable name (hum name).",
+      "runner": "hum",
+      "command": ["name"],
+      "arguments": [
+        { "source": "select", "selector": "agents", "prompt": "agent" },
+        { "source": "input", "prompt": "new name", "required": true }
+      ]
+    },
+    {
+      "id": "hum.agent.notify",
+      "title": "Agent: Notify me when it settles…",
+      "description": "Wait in the background for an agent to finish or need you, then show a herdr notification (hum wait --notify).",
+      "runner": "hum",
+      "command": ["wait"],
+      "arguments": [
+        { "source": "select", "selector": "agents", "prompt": "agent to watch" },
+        { "source": "literal", "value": "--notify" }
+      ]
+    },
+    {
       "id": "config.reload",
       "title": "Config: Reload",
       "description": "Reload config.toml in the running server.",

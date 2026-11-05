@@ -323,8 +323,8 @@ proceso aparte (`hum palette run`) que espera a que el popup se cierre —
 reintentando mientras herdr siga ocupado— y entonces ejecuta el comando. Si
 falla, lo avisa con una notificación de herdr.
 
-Los comandos nativos están en `internal/palette/commands.json` (42 entradas, que
-usan 25 comandos distintos de herdr) y viajan dentro del binario. Los
+Los comandos nativos están en `internal/palette/commands.json` (46 entradas: 42 de
+herdr, que usan 25 comandos distintos, y 4 de `hum`) y viajan dentro del binario. Los
 atajos se leen de `HERDR_CONFIG_PATH` o, si no está, del `config.toml` de herdr en
 la carpeta de configuración del sistema (`%APPDATA%\herdr` en Windows). Los
 recientes y la caché viven en `HERDR_PLUGIN_STATE_DIR`.
@@ -351,12 +351,34 @@ la paleta ejecuta el comando aparte y nadie vería la salida), lo que usan las
 integraciones de agentes, lo destructivo (`worktree remove`, `machine remove`,
 `session delete`, `server stop`…, que conviene hacer desde una terminal donde se
 pueda confirmar), lo que necesita esa terminal, lo de argumentos libres, lo que
-instala código de terceros y lo que `hum` ya resuelve con su propio flujo
-(`pick`, `ask`, `name`, `new`).
+instala código de terceros y lo que `hum` ya resuelve con su propio flujo (de
+`agent prompt`, `agent rename` y `agent start` se encargan los comandos de `hum`
+de abajo).
+
+#### Comandos de `hum` en la paleta
+
+Cuatro entradas con origen `hum` (en `commands.json` llevan `"runner": "hum"`):
+
+| Entrada | Ejecuta | Pregunta |
+|---|---|---|
+| *Agent: New…* | `hum new <tipo> <carpeta> [--name N]` | tipo de agente (la lista de `hum new`), carpeta (parte de la del pane de origen) y nombre opcional |
+| *Agent: Say…* | `hum say <agente> -- <mensaje>` | agente y mensaje |
+| *Agent: Rename…* | `hum name <agente> <nombre>` | agente y nombre |
+| *Agent: Notify me when it settles…* | `hum wait <agente> --notify` | agente; avisa con una notificación de herdr cuando termine o te necesite |
+
+Se ejecutan en un proceso aparte (`hum palette run --hum …`) con el mismo reintento
+de `ui_busy` que los de herdr. Si fallan, avisan con una notificación; `hum wait`
+terminando bloqueado o por plazo no se avisa dos veces, porque ya lo cuenta él.
+*Agent: New…* deja el nombre vacío para usar el tipo: un valor opcional vacío no
+añade ni `--name` ni el valor. Un test comprueba que cada comando y cada opción
+que usa el catálogo existe en la CLI de `hum`, así que renombrar uno rompe el test
+y no la paleta.
 
 Para añadir un comando: una entrada en `commands.json` (fuentes de argumento
-`literal`, `context`, `input` y `select`; selectores `workspaces`, `tabs`,
-`agents`, `machines` y `plugins`) y quitarlo de `excluded.go` si estaba ahí.
+`literal`, `context`, `input` y `select`; en un `input`, `flag` lo hace opcional;
+selectores `workspaces`, `tabs`, `agents`, `machines`, `plugins` y `agent_kinds`;
+`"runner": "hum"` si es un comando de `hum`) y quitarlo de `excluded.go` si estaba
+ahí.
 
 ### Crear un agente (`hum new`)
 
