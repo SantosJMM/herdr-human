@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/SantosJMM/herdr-human/internal/cli"
+	"github.com/SantosJMM/herdr-human/internal/herdr"
 	"github.com/SantosJMM/herdr-human/internal/herdrtest"
 )
 
@@ -307,4 +308,79 @@ func TestPaletteEndToEndOpensEvenIfPluginsAreSlowOrDown(t *testing.T) {
 		t.Errorf("nothing was chosen, nothing should run: %v", args)
 	default:
 	}
+}
+
+// El CLI real de herdr imprime el error ui_busy como JSON por stderr y sale con
+// código 1 (no hay sobre en stdout). Este es el error tal como llega de verdad.
+func realUIBusy() error {
+	return &herdr.ExitError{
+		Args:   paneOpen,
+		Stderr: `{"error":{"code":"ui_busy","message":"a popup pane is already open"},"id":"cli:plugin"}`,
+		Err:    errors.New("exit status 1"),
+	}
+}
+
+func TestPaletteOpenRetriesWhileThePreviousPopupIsClosing(t *testing.T) {
+	t.Parallel()
+	fake := &flakyRunner{failures: 3, err: realUIBusy()}
+	var stdout, stderr bytes.Buffer
+	code := cli.Run(context.Background(), cli.Env{
+		Runner: fake, Stdout: &stdout, Stderr: &stderr,
+		Sleep: func(context.Context, time.Duration) error { return nil },
+	}, []string{"palette", "open"})
+	if code != 0 || fake.calls != 4 {
+		t.Errorf("a popup that is still closing is retried: code=%d calls=%d stderr=%q", code, fake.calls, stderr.String())
+	}
+}
+
+func TestPaletteOpenStopsInsistingWhenAnotherPopupStaysOpen(t *testing.T) {
+	t.Parallel()
+	fake := &flakyRunner{failures: 1000, err: realUIBusy()}
+	var stderr bytes.Buffer
+	code := cli.Run(context.Background(), cli.Env{
+		Runner: fake, Stdout: io.Discard, Stderr: &stderr,
+		Sleep: func(context.Context, time.Duration) error { return nil },
+	}, []string{"palette", "open"})
+	if code != 1 || fake.calls > 15 || !strings.Contains(stderr.String(), "ui_busy") {
+		t.Errorf("a bounded number of attempts, then the reason: code=%d calls=%d stderr=%q", code, fake.calls, stderr.String())
+	}
+}
+
+func TestPaletteRunRetriesOnTheRealStderrFormat(t *testing.T) {
+	t.Parallel()
+	fake := &flakyRunner{failures: 2, err: realUIBusy()}
+	code := cli.Run(context.Background(), cli.Env{
+		Runner: fake, Stdout: io.Discard, Stderr: io.Discard,
+		Sleep: func(context.Context, time.Duration) error { return nil },
+	}, []string{"palette", "run", "--action", "x.plug", "ping"})
+	if code != 0 || fake.calls != 3 {
+		t.Errorf("ui_busy on stderr is retried: code=%d calls=%d", code, fake.calls)
+	}
+}
+
+func TestPaletteOpenDoesNotRetryOtherFailures(t *testing.T) {
+	t.Parallel()
+	fake := &flakyRunner{failures: 5, err: &herdr.ExitError{Stderr: `{"error":{"code":"not_found"}}`, Err: errors.New("exit status 1")}}
+	code := cli.Run(context.Background(), cli.Env{
+		Runner: fake, Stdout: io.Discard, Stderr: io.Discard,
+		Sleep: func(context.Context, time.Duration) error { return nil },
+	}, []string{"palette", "open"})
+	if code != 1 || fake.calls != 1 {
+		t.Errorf("only ui_busy is worth retrying: code=%d calls=%d", code, fake.calls)
+	}
+}
+
+// flakyRunner falla con err las primeras failures veces y luego responde bien.
+type flakyRunner struct {
+	failures int
+	err      error
+	calls    int
+}
+
+func (f *flakyRunner) Run(context.Context, string, ...string) ([]byte, error) {
+	f.calls++
+	if f.calls <= f.failures {
+		return nil, f.err
+	}
+	return []byte(okReply), nil
 }

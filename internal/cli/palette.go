@@ -17,12 +17,16 @@ const (
 	defaultPluginID = "herdr-human"
 	// paletteID es el id de la acción y del pane de la paleta en el manifest.
 	paletteID = "palette"
-	// Espera a que el popup termine de cerrarse antes de lanzar lo elegido: mientras
-	// está abierto, cualquier comando que abra un pane o popup recibe `ui_busy`.
-	// Se espera un poco y se reintenta mientras herdr siga diciendo que está ocupado.
-	runFirstDelay   = 30 * time.Millisecond
-	runRetryDelay   = 50 * time.Millisecond
-	runMaxAttempts  = 40
+	// Mientras un popup está abierto (o terminando de cerrarse), cualquier comando
+	// que abra un pane o popup recibe `ui_busy`. Se reintenta con una espera corta
+	// mientras herdr siga diciendo que está ocupado.
+	runFirstDelay  = 30 * time.Millisecond
+	busyRetryDelay = 50 * time.Millisecond
+	// Tras elegir, el popup anterior puede tardar en cerrarse: hasta ~2 s.
+	runMaxAttempts = 40
+	// Al abrir, solo cubre el cierre del popup anterior: hasta ~0,5 s. Si de
+	// verdad hay otro popup abierto, no tiene sentido insistir más.
+	openMaxAttempts = 10
 	uiBusyCode      = "ui_busy"
 	paletteRunUsage = "usage: hum palette run --action PLUGIN ACTION | --command HERDR_ARGS..."
 )
@@ -55,10 +59,9 @@ func (a *app) pluginID() string {
 // único que hace; herdr le pasa al popup el workspace, la pestaña y el pane de
 // origen, así que no hace falta preguntarlos ni reenviarlos.
 func (a *app) paletteOpen(ctx context.Context) error {
-	_, err := herdr.Text(ctx, a.env.Runner, "", []string{
+	return a.herdrWhenFree(ctx, []string{
 		"plugin", "pane", "open", "--plugin", a.pluginID(), "--entrypoint", paletteID, "--focus",
-	})
-	return err
+	}, 0, openMaxAttempts)
 }
 
 // paletteUI dibuja la paleta. Se pinta al instante con los comandos embebidos y
@@ -159,29 +162,47 @@ func (a *app) paletteRun(ctx context.Context, args []string) error {
 		return usagef("%s", paletteRunUsage)
 	}
 
-	err := a.runWhenFree(ctx, argv)
+	err := a.herdrWhenFree(ctx, argv, runFirstDelay, runMaxAttempts)
 	if err != nil {
 		_, _ = herdr.Text(ctx, a.env.Runner, "", []string{"notification", "show", "Command palette", "--body", label + " failed: " + err.Error()})
 	}
 	return err
 }
 
-// runWhenFree ejecuta el comando de herdr en cuanto el popup deja de estar abierto.
-func (a *app) runWhenFree(ctx context.Context, argv []string) error {
-	delay := runFirstDelay
+// herdrWhenFree ejecuta un comando de herdr y, mientras herdr conteste que está
+// ocupado con un popup, lo reintenta hasta attempts veces. first es la espera
+// antes del primer intento (0 = de inmediato).
+func (a *app) herdrWhenFree(ctx context.Context, argv []string, first time.Duration, attempts int) error {
+	delay := first
 	var err error
-	for range runMaxAttempts {
-		if err = a.sleepFor(ctx, delay); err != nil {
-			return err
+	for range attempts {
+		if delay > 0 {
+			if err = a.sleepFor(ctx, delay); err != nil {
+				return err
+			}
 		}
 		_, err = herdr.Text(ctx, a.env.Runner, "", argv)
-		var api *herdr.APIError
-		if err == nil || !errors.As(err, &api) || api.Code != uiBusyCode {
+		if !isUIBusy(err) {
 			return err
 		}
-		delay = runRetryDelay
+		delay = busyRetryDelay
 	}
 	return err
+}
+
+// isUIBusy dice si herdr rechazó el comando porque hay un popup abierto. El CLI
+// de herdr imprime ese error como JSON por stderr y sale con código 1, así que
+// además del sobre de stdout hay que mirar el stderr del proceso.
+func isUIBusy(err error) bool {
+	if err == nil {
+		return false
+	}
+	var api *herdr.APIError
+	if errors.As(err, &api) {
+		return api.Code == uiBusyCode
+	}
+	var exit *herdr.ExitError
+	return errors.As(err, &exit) && strings.Contains(exit.Stderr, `"`+uiBusyCode+`"`)
 }
 
 func (a *app) sleepFor(ctx context.Context, d time.Duration) error {
