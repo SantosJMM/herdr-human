@@ -68,6 +68,13 @@ El plugin añade estas acciones a la paleta de comandos (F1):
 | *Who needs me? (hum attention)* | `attention-windows` / `attention-unix` | quién te necesita |
 | *Show all agents (hum ls)* | `overview-windows` / `overview-unix` | la lista de todos los agentes |
 | *Manage saved machines (hum machines menu)* | `machines-windows` / `machines-unix` | el menú de máquinas |
+| *Open command palette* | `palette` | la [paleta de comandos](#paleta-de-comandos-hum-palette) |
+
+Todas arrancan `bin/hum` directamente, sin PowerShell ni `sh` de por medio (que en
+Windows cuestan cerca de un segundo por arranque). Los ids `-windows` y `-unix` de
+cada acción hacen lo mismo; se conservan los dos porque los atajos de `config.toml`
+ya los usan. Las vistas que solo muestran texto (*Show all agents*, *Who needs me?*)
+esperan **cualquier tecla** antes de cerrarse, para que dé tiempo a leerlas.
 
 Puedes asignarles un atajo en `config.toml`; el selector complementa al *Goto* de
 herdr (`prefix+g`, que no se toca) con acciones y todas las máquinas:

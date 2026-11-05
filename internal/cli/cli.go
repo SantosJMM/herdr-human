@@ -242,6 +242,8 @@ func (a *app) dispatch(ctx context.Context, args []string) error {
 		return a.newAgent(ctx, rest)
 	case "palette":
 		return a.palette(ctx, rest)
+	case "popup":
+		return a.popup(ctx, rest) // interno: lo usa el manifest del plugin
 	case "completion":
 		return a.completion(ctx, rest)
 	case "__complete":

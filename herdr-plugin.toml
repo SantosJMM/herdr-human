@@ -15,241 +15,112 @@ command = ["sh", "scripts/install.sh"]
 platforms = ["windows"]
 command = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "scripts/install.ps1"]
 
+# Todas las acciones y los panes arrancan bin/hum DIRECTAMENTE: herdr completa el
+# .exe en Windows y usa la raíz del plugin como carpeta de trabajo. Antes pasaban
+# por powershell.exe (o sh), que en Windows cuesta cerca de un segundo por cada
+# arranque, y una acción más su pane lo pagaban dos veces. Hay un test
+# (cmd/hum/manifest_test.go) que falla si vuelve un intérprete.
+#
+# Las acciones X-windows y X-unix hacen lo mismo: se conservan los dos ids porque
+# los atajos de config.toml ya los usan (p. ej. herdr-human.pick-windows). Los
+# panes, en cambio, tienen una sola definición para todas las plataformas.
+# `hum popup <nombre>` abre el pane del mismo nombre.
+
 [[actions]]
 id = "overview-windows"
 title = "Show all agents (hum ls)"
 contexts = ["workspace", "tab", "pane"]
 platforms = ["windows"]
-command = [
-  "powershell.exe",
-  "-NoLogo",
-  "-NoProfile",
-  "-ExecutionPolicy",
-  "Bypass",
-  "-Command",
-  "& $env:HERDR_BIN_PATH plugin pane open --plugin $env:HERDR_PLUGIN_ID --entrypoint overview-windows --placement popup"
-]
+command = ["bin/hum", "popup", "overview"]
 
 [[actions]]
 id = "overview-unix"
 title = "Show all agents (hum ls)"
 contexts = ["workspace", "tab", "pane"]
 platforms = ["linux", "macos"]
-command = [
-  "sh",
-  "-lc",
-  "exec \"$HERDR_BIN_PATH\" plugin pane open --plugin \"$HERDR_PLUGIN_ID\" --entrypoint overview-unix --placement popup"
-]
+command = ["bin/hum", "popup", "overview"]
 
 [[actions]]
 id = "machines-windows"
 title = "Manage saved machines (hum machines menu)"
 contexts = ["workspace", "tab", "pane"]
 platforms = ["windows"]
-command = [
-  "powershell.exe",
-  "-NoLogo",
-  "-NoProfile",
-  "-ExecutionPolicy",
-  "Bypass",
-  "-Command",
-  "& $env:HERDR_BIN_PATH plugin pane open --plugin $env:HERDR_PLUGIN_ID --entrypoint machines-windows --placement popup"
-]
+command = ["bin/hum", "popup", "machines"]
 
 [[actions]]
 id = "machines-unix"
 title = "Manage saved machines (hum machines menu)"
 contexts = ["workspace", "tab", "pane"]
 platforms = ["linux", "macos"]
-command = [
-  "sh",
-  "-lc",
-  "exec \"$HERDR_BIN_PATH\" plugin pane open --plugin \"$HERDR_PLUGIN_ID\" --entrypoint machines-unix --placement popup"
-]
-
-[[panes]]
-id = "machines-windows"
-title = "Herdr machines"
-platforms = ["windows"]
-placement = "popup"
-width = "90%"
-height = "65%"
-command = [
-  "powershell.exe",
-  "-NoLogo",
-  "-NoProfile",
-  "-ExecutionPolicy",
-  "Bypass",
-  "-Command",
-  "& (Join-Path $env:HERDR_PLUGIN_ROOT 'bin\\hum.exe') machines menu"
-]
-
-[[panes]]
-id = "machines-unix"
-title = "Herdr machines"
-platforms = ["linux", "macos"]
-placement = "popup"
-width = "90%"
-height = "65%"
-command = [
-  "sh",
-  "-c",
-  "exec \"$HERDR_PLUGIN_ROOT/bin/hum\" machines menu"
-]
-
-[[panes]]
-id = "overview-windows"
-title = "Herdr agents"
-platforms = ["windows"]
-placement = "popup"
-width = "80%"
-height = "70%"
-command = [
-  "powershell.exe",
-  "-NoLogo",
-  "-NoProfile",
-  "-ExecutionPolicy",
-  "Bypass",
-  "-Command",
-  "& (Join-Path $env:HERDR_PLUGIN_ROOT 'bin\\hum.exe') ls; Write-Host ''; Write-Host 'Press any key to close'; [void][Console]::ReadKey($true)"
-]
-
-[[panes]]
-id = "overview-unix"
-title = "Herdr agents"
-platforms = ["linux", "macos"]
-placement = "popup"
-width = "80%"
-height = "70%"
-command = [
-  "sh",
-  "-c",
-  "\"$HERDR_PLUGIN_ROOT/bin/hum\" ls; printf '\\nPress enter to close'; read -r _"
-]
+command = ["bin/hum", "popup", "machines"]
 
 [[actions]]
 id = "pick-windows"
 title = "Talk to agents (hum pick)"
 contexts = ["workspace", "tab", "pane"]
 platforms = ["windows"]
-command = [
-  "powershell.exe",
-  "-NoLogo",
-  "-NoProfile",
-  "-ExecutionPolicy",
-  "Bypass",
-  "-Command",
-  "& $env:HERDR_BIN_PATH plugin pane open --plugin $env:HERDR_PLUGIN_ID --entrypoint pick-windows --placement popup"
-]
+command = ["bin/hum", "popup", "pick"]
 
 [[actions]]
 id = "pick-unix"
 title = "Talk to agents (hum pick)"
 contexts = ["workspace", "tab", "pane"]
 platforms = ["linux", "macos"]
-command = [
-  "sh",
-  "-lc",
-  "exec \"$HERDR_BIN_PATH\" plugin pane open --plugin \"$HERDR_PLUGIN_ID\" --entrypoint pick-unix --placement popup"
-]
+command = ["bin/hum", "popup", "pick"]
 
 [[actions]]
 id = "attention-windows"
 title = "Who needs me? (hum attention)"
 contexts = ["workspace", "tab", "pane"]
 platforms = ["windows"]
-command = [
-  "powershell.exe",
-  "-NoLogo",
-  "-NoProfile",
-  "-ExecutionPolicy",
-  "Bypass",
-  "-Command",
-  "& $env:HERDR_BIN_PATH plugin pane open --plugin $env:HERDR_PLUGIN_ID --entrypoint attention-windows --placement popup"
-]
+command = ["bin/hum", "popup", "attention"]
 
 [[actions]]
 id = "attention-unix"
 title = "Who needs me? (hum attention)"
 contexts = ["workspace", "tab", "pane"]
 platforms = ["linux", "macos"]
-command = [
-  "sh",
-  "-lc",
-  "exec \"$HERDR_BIN_PATH\" plugin pane open --plugin \"$HERDR_PLUGIN_ID\" --entrypoint attention-unix --placement popup"
-]
+command = ["bin/hum", "popup", "attention"]
 
-[[panes]]
-id = "pick-windows"
-title = "Talk to agents"
-platforms = ["windows"]
-placement = "popup"
-width = "90%"
-height = "80%"
-command = [
-  "powershell.exe",
-  "-NoLogo",
-  "-NoProfile",
-  "-ExecutionPolicy",
-  "Bypass",
-  "-Command",
-  "& (Join-Path $env:HERDR_PLUGIN_ROOT 'bin\\hum.exe') pick"
-]
-
-[[panes]]
-id = "pick-unix"
-title = "Talk to agents"
-platforms = ["linux", "macos"]
-placement = "popup"
-width = "90%"
-height = "80%"
-command = [
-  "sh",
-  "-c",
-  "exec \"$HERDR_PLUGIN_ROOT/bin/hum\" pick"
-]
-
-[[panes]]
-id = "attention-windows"
-title = "Who needs me"
-platforms = ["windows"]
-placement = "popup"
-width = "80%"
-height = "60%"
-command = [
-  "powershell.exe",
-  "-NoLogo",
-  "-NoProfile",
-  "-ExecutionPolicy",
-  "Bypass",
-  "-Command",
-  "& (Join-Path $env:HERDR_PLUGIN_ROOT 'bin\\hum.exe') attention; Write-Host ''; Write-Host 'Press any key to close'; [void][Console]::ReadKey($true)"
-]
-
-[[panes]]
-id = "attention-unix"
-title = "Who needs me"
-platforms = ["linux", "macos"]
-placement = "popup"
-width = "80%"
-height = "60%"
-command = [
-  "sh",
-  "-c",
-  "\"$HERDR_PLUGIN_ROOT/bin/hum\" attention; printf '\\nPress enter to close'; read -r _"
-]
-
-# Paleta de comandos. A diferencia de las demás, esta acción y su pane arrancan
-# el binario directamente (herdr completa el .exe en Windows y usa la raíz del
-# plugin como carpeta de trabajo): sin PowerShell ni sh de por medio, que en
-# Windows cuesta cerca de un segundo por cada arranque. Es la misma definición
-# para todas las plataformas. Se enlaza con type = "plugin_action" y el comando
-# "herdr-human.palette".
+# Paleta de comandos: se enlaza con type = "plugin_action" y el comando
+# "herdr-human.palette". Su pane se abre con `hum palette open`.
 [[actions]]
 id = "palette"
 title = "Open command palette"
 contexts = ["workspace", "tab", "pane"]
 command = ["bin/hum", "palette", "open"]
+
+[[panes]]
+id = "overview"
+title = "Herdr agents"
+placement = "popup"
+width = "80%"
+height = "70%"
+command = ["bin/hum", "popup", "show", "ls"]
+
+[[panes]]
+id = "machines"
+title = "Herdr machines"
+placement = "popup"
+width = "90%"
+height = "65%"
+command = ["bin/hum", "machines", "menu"]
+
+[[panes]]
+id = "pick"
+title = "Talk to agents"
+placement = "popup"
+width = "90%"
+height = "80%"
+command = ["bin/hum", "pick"]
+
+[[panes]]
+id = "attention"
+title = "Who needs me"
+placement = "popup"
+width = "80%"
+height = "60%"
+command = ["bin/hum", "popup", "show", "attention"]
 
 [[panes]]
 id = "palette"

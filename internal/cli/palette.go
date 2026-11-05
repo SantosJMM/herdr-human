@@ -58,9 +58,13 @@ func (a *app) pluginID() string {
 // paletteOpen es lo que ejecuta el atajo: abre el popup de la paleta. Es lo
 // único que hace; herdr le pasa al popup el workspace, la pestaña y el pane de
 // origen, así que no hace falta preguntarlos ni reenviarlos.
-func (a *app) paletteOpen(ctx context.Context) error {
+func (a *app) paletteOpen(ctx context.Context) error { return a.openPane(ctx, paletteID) }
+
+// openPane abre y enfoca el pane del plugin con ese id. Reintenta unos instantes
+// si el popup anterior aún se está cerrando.
+func (a *app) openPane(ctx context.Context, entrypoint string) error {
 	return a.herdrWhenFree(ctx, []string{
-		"plugin", "pane", "open", "--plugin", a.pluginID(), "--entrypoint", paletteID, "--focus",
+		"plugin", "pane", "open", "--plugin", a.pluginID(), "--entrypoint", entrypoint, "--focus",
 	}, 0, openMaxAttempts)
 }
 
