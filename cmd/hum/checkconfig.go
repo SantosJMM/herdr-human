@@ -5,6 +5,8 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+
+	"github.com/SantosJMM/herdr-human/internal/herdr"
 )
 
 // checkConfig ejecuta `herdr config check` sobre el archivo dado (HERDR_CONFIG_PATH
@@ -18,6 +20,7 @@ func checkConfig(ctx context.Context, path string) (string, error) {
 	}
 	cmd := exec.CommandContext(ctx, bin, "config", "check")
 	cmd.Env = append(os.Environ(), "HERDR_CONFIG_PATH="+path)
+	herdr.HideConsole(cmd)
 	out, err := cmd.CombinedOutput()
 	var exit *exec.ExitError
 	if err != nil && errors.As(err, &exit) && len(out) > 0 {

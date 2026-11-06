@@ -69,6 +69,7 @@ func (r *ExecRunner) Run(ctx context.Context, machine string, args ...string) ([
 	cmd := exec.CommandContext(ctx, r.Bin, full...)
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
+	HideConsole(cmd)
 	// Al vencer el plazo se mata herdr, pero un hijo suyo (ssh) puede seguir con
 	// las tuberías abiertas; sin esto Run esperaría a que termine por su cuenta y
 	// el plazo por máquina no se respetaría.
