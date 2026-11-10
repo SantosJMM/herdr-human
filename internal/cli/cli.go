@@ -116,6 +116,10 @@ Usage:
                                                 terminal). "hum" alone does the same
                                                 in a terminal and prints this help
                                                 otherwise
+  hum home [--embedded]                          home screen: tabs for agents, attention,
+                                                machines and commands in one popup (needs
+                                                a terminal; bind the "home" action of this
+                                                plugin to a key)
   hum palette [--embedded]                       command palette: fuzzy-search and run every
                                                 herdr command and every action of every
                                                 plugin (needs a terminal; bind the
@@ -271,6 +275,8 @@ func (a *app) dispatch(ctx context.Context, args []string) error {
 		return a.newAgent(ctx, rest)
 	case "palette":
 		return a.palette(ctx, rest)
+	case "home":
+		return a.home(ctx, rest)
 	case "popup":
 		return a.popup(ctx, rest) // interno: lo usa el manifest del plugin
 	case "trace":

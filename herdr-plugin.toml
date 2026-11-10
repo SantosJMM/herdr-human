@@ -90,6 +90,14 @@ title = "Open command palette"
 contexts = ["workspace", "tab", "pane"]
 command = ["bin/hum", "palette", "open"]
 
+# Pantalla de inicio: se enlaza con type = "plugin_action" y el comando
+# "herdr-human.home". Su pane se abre con `hum home open`.
+[[actions]]
+id = "home"
+title = "Open home screen"
+contexts = ["workspace", "tab", "pane"]
+command = ["bin/hum", "home", "open"]
+
 [[panes]]
 id = "overview"
 title = "Herdr agents"
@@ -129,3 +137,11 @@ placement = "popup"
 width = "70%"
 height = "60%"
 command = ["bin/hum", "palette", "--embedded"]
+
+[[panes]]
+id = "home"
+title = "Herdr human"
+placement = "popup"
+width = "90%"
+height = "80%"
+command = ["bin/hum", "home", "--embedded"]

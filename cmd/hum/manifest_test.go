@@ -89,6 +89,8 @@ func TestEveryActionOpensAPaneThatExists(t *testing.T) {
 			pane = m[1]
 		case b.command == `["bin/hum", "palette", "open"]`:
 			pane = "palette"
+		case b.command == `["bin/hum", "home", "open"]`:
+			pane = "home"
 		default:
 			t.Errorf("action %q has an unexpected command %s", b.id, b.command)
 			continue
@@ -108,6 +110,7 @@ func TestEveryPaneRunsSomethingThatExists(t *testing.T) {
 		"machines":  `["bin/hum", "machines", "menu"]`,
 		"pick":      `["bin/hum", "pick", "--embedded"]`,
 		"palette":   `["bin/hum", "palette", "--embedded"]`,
+		"home":      `["bin/hum", "home", "--embedded"]`,
 	}
 	blocks := readManifest(t)
 	for id, command := range want {
@@ -146,8 +149,10 @@ func TestActionIDsUsedByShortcutsAreKept(t *testing.T) {
 			}
 		}
 	}
-	if find(blocks, "actions", "palette") == nil {
-		t.Error("action palette is missing")
+	for _, id := range []string{"palette", "home"} {
+		if find(blocks, "actions", id) == nil {
+			t.Errorf("action %s is missing", id)
+		}
 	}
 }
 
@@ -158,7 +163,7 @@ func TestActionTitlesMentionWhatTheyDo(t *testing.T) {
 	for id, want := range map[string]string{
 		"pick-windows": "Talk to agents", "pick-unix": "Talk to agents",
 		"attention-windows": "Who needs me", "attention-unix": "Who needs me",
-		"palette": "command palette",
+		"palette": "command palette", "home": "home screen",
 	} {
 		if a := find(blocks, "actions", id); a == nil || !strings.Contains(a.title, want) {
 			t.Errorf("action %s title should mention %q: %+v", id, want, a)
@@ -171,7 +176,7 @@ func TestPopupSizes(t *testing.T) {
 
 	blocks := readManifest(t)
 	for id, size := range map[string][2]string{
-		"pick": {"90%", "80%"}, "palette": {"70%", "60%"}, "machines": {"90%", "65%"},
+		"pick": {"90%", "80%"}, "palette": {"70%", "60%"}, "machines": {"90%", "65%"}, "home": {"90%", "80%"},
 		"overview": {"80%", "70%"}, "attention": {"80%", "60%"},
 	} {
 		pane := find(blocks, "panes", id)
@@ -194,7 +199,7 @@ func TestPopupsThatDrawAFrameAskToBeEmbedded(t *testing.T) {
 	t.Parallel()
 
 	blocks := readManifest(t)
-	for _, id := range []string{"pick", "palette"} {
+	for _, id := range []string{"pick", "palette", "home"} {
 		pane := find(blocks, "panes", id)
 		if pane == nil || !strings.Contains(pane.command, `"--embedded"`) {
 			t.Errorf("pane %s draws its own frame inside the one herdr draws: it needs --embedded: %+v", id, pane)
