@@ -43,29 +43,45 @@ func (a *app) selector(ctx context.Context, args []string) error {
 	// stderr. Al salir se cancelan las consultas que sigan en curso.
 	sctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	// Siempre en vivo, pero lo que responda renueva la caché para ls y el autocompletado.
-	cf.cached, cf.fresh = true, true
-	stream, err := inventory.StartCached(sctx, a.env.Runner, a.options(cf, ""), a.cacheFor(cf))
+	opts, err := a.pickOptions(sctx, cf, style, vf.fullNames)
 	if err != nil {
 		return err
 	}
+	opts.Embedded = embedded
 
-	t, ok, err := tui.Run(sctx, a.env.Stdin, a.env.Stdout, tui.Options{
-		Style: style, FullNames: vf.fullNames, Machines: stream.Machines, Updates: stream.Updates,
-		Actions:  pickActions{svc: actions.Service{Runner: a.env.Runner}, copy: a.env.Copy},
-		Ctx:      sctx,
-		Branch:   gitinfo.Branch,
-		Embedded: embedded,
-		Refresh: func(ctx context.Context, machine string) ([]inventory.Target, error) {
-			return inventory.LoadMachine(ctx, a.env.Runner, machine, cf.serverTimeout)
-		},
-	})
+	t, ok, err := tui.Run(sctx, a.env.Stdin, a.env.Stdout, opts)
 	if err != nil {
 		return fmt.Errorf("selector: %w", err)
 	}
 	if !ok {
 		return nil
 	}
+	return a.focusChosen(ctx, t)
+}
+
+// pickOptions arma los datos y las acciones del selector de agentes, con carga
+// progresiva: empieza a consultar las máquinas ya. Lo usan `hum pick` y la
+// pestaña de agentes de la pantalla de inicio. ctx acota las consultas.
+func (a *app) pickOptions(ctx context.Context, cf commonFlags, style *ui.Style, fullNames bool) (tui.Options, error) {
+	// Siempre en vivo, pero lo que responda renueva la caché para ls y el autocompletado.
+	cf.cached, cf.fresh = true, true
+	stream, err := inventory.StartCached(ctx, a.env.Runner, a.options(cf, ""), a.cacheFor(cf))
+	if err != nil {
+		return tui.Options{}, err
+	}
+	return tui.Options{
+		Style: style, FullNames: fullNames, Machines: stream.Machines, Updates: stream.Updates,
+		Actions: pickActions{svc: actions.Service{Runner: a.env.Runner}, copy: a.env.Copy},
+		Ctx:     ctx,
+		Branch:  gitinfo.Branch,
+		Refresh: func(ctx context.Context, machine string) ([]inventory.Target, error) {
+			return inventory.LoadMachine(ctx, a.env.Runner, machine, cf.serverTimeout)
+		},
+	}, nil
+}
+
+// focusChosen lleva el foco de herdr hasta el agente elegido.
+func (a *app) focusChosen(ctx context.Context, t inventory.Target) error {
 	if err := (actions.Service{Runner: a.env.Runner}).Focus(ctx, t); err != nil {
 		return targetHint(err, t)
 	}

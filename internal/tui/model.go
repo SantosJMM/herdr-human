@@ -235,6 +235,11 @@ func waitFor(ch <-chan inventory.Update) tea.Cmd {
 	}
 }
 
+// Capturing indica que el selector está usando las teclas para otra cosa que
+// moverse por la lista: escribe una búsqueda, o está en el menú, en una línea de
+// texto o esperando un resultado. Quien lo aloja no debe quitárselas.
+func (m Model) Capturing() bool { return m.searching || m.mode != modeList }
+
 func tick(start time.Time) tea.Cmd {
 	return tea.Tick(tickEvery, func(time.Time) tea.Msg { return TickMsg{Elapsed: time.Since(start)} })
 }

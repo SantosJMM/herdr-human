@@ -10,8 +10,16 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/SantosJMM/herdr-human/internal/inventory"
 	"github.com/SantosJMM/herdr-human/internal/ui"
 )
+
+// HomeResult es lo que dejó elegido la pantalla de inicio al cerrarse.
+type HomeResult struct {
+	// Chosen es true si se eligió un agente (con «Go to it»); Target es ese agente.
+	Chosen bool
+	Target inventory.Target
+}
 
 // Tab es una sección de la pantalla de inicio (agentes, atención, máquinas…).
 // La pantalla de inicio las aloja y reparte las teclas; cada una dibuja solo su
@@ -54,9 +62,13 @@ type HomeModel struct {
 	tabs   []Tab
 	active int
 	opts   HomeOptions
+	result HomeResult
 
 	width, height int
 }
+
+// Result devuelve lo elegido al cerrar la pantalla.
+func (m HomeModel) Result() HomeResult { return m.result }
 
 // NewHome crea la pantalla de inicio con la primera pestaña activa.
 func NewHome(o HomeOptions) HomeModel {
@@ -106,6 +118,14 @@ func (m HomeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		bw, bh := m.bodySize()
 		return m.broadcast(tea.WindowSizeMsg{Width: bw, Height: bh})
 	}
+	switch msg := msg.(type) {
+	case LeaveMsg:
+		// Una pestaña alojada terminó (eligió un agente o salió): se cierra todo.
+		m.result = HomeResult{Chosen: msg.Chosen, Target: msg.Target}
+		return m, tea.Quit
+	case tea.MouseMsg:
+		return m.onMouse(msg)
+	}
 	key, isKey := msg.(tea.KeyMsg)
 	if !isKey {
 		return m.broadcast(msg)
@@ -134,6 +154,49 @@ func (m HomeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 	return m.forward(m.active, msg)
+}
+
+// top es la fila de pantalla donde empieza el cuerpo, y bar la de la barra de
+// pestañas: con marco propio hay un borde encima.
+func (m HomeModel) top() (bar, body int) {
+	if m.opts.Embedded {
+		return 0, 2
+	}
+	return 1, 3
+}
+
+// tabAt devuelve la pestaña que hay en la columna x de la barra, o -1.
+func (m HomeModel) tabAt(x int) int {
+	x -= 2 // el borde y el margen
+	for i, t := range m.tabs {
+		w := ui.VisibleLen(strconv.Itoa(i+1)+" "+t.Title()) + 2
+		if x >= 0 && x < w {
+			return i
+		}
+		x -= w + 1
+	}
+	return -1
+}
+
+// onMouse atiende el ratón: un clic en la barra cambia de pestaña, y lo que cae en
+// el cuerpo llega a la pestaña activa con las coordenadas de su propio hueco.
+func (m HomeModel) onMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
+	bar, body := m.top()
+	_, bodyH := m.bodySize()
+	switch {
+	case msg.Y == bar:
+		if msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonLeft {
+			if i := m.tabAt(msg.X); i >= 0 {
+				m.active = i
+			}
+		}
+		return m, nil
+	case msg.Y >= body && msg.Y < body+bodyH && len(m.tabs) > 0:
+		msg.Y -= body
+		msg.X -= 2
+		return m.forward(m.active, msg)
+	}
+	return m, nil
 }
 
 // forward entrega un mensaje a una pestaña.
@@ -209,17 +272,18 @@ func (m HomeModel) hint() string {
 }
 
 // RunHome abre la pantalla de inicio a pantalla completa.
-func RunHome(ctx context.Context, in io.Reader, out io.Writer, o HomeOptions) error {
+func RunHome(ctx context.Context, in io.Reader, out io.Writer, o HomeOptions) (HomeResult, error) {
 	p := tea.NewProgram(NewHome(o),
 		tea.WithAltScreen(), tea.WithMouseCellMotion(),
 		tea.WithInput(in), tea.WithOutput(out), tea.WithContext(ctx))
-	if _, err := p.Run(); err != nil {
+	final, err := p.Run()
+	if err != nil {
 		if ctx.Err() != nil || errors.Is(err, tea.ErrProgramKilled) {
-			return nil
+			return HomeResult{}, nil
 		}
-		return err
+		return HomeResult{}, err
 	}
-	return nil
+	return final.(HomeModel).Result(), nil
 }
 
 // textTab es una pestaña que solo muestra un texto fijo.

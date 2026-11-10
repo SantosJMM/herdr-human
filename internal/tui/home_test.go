@@ -136,11 +136,14 @@ func TestHomeForwardsOtherMessagesToEveryTab(t *testing.T) {
 	a, b := &captureTab{}, &recordTab{}
 	m := startHome(t, true, a, b)
 	before := b.msgs
-	homeSend(t, m, tea.MouseMsg{})
+	homeSend(t, m, loadedMsg{})
 	if b.msgs != before+1 {
 		t.Error("a message that is not a key reaches every tab, even the hidden ones (loading updates)")
 	}
 }
+
+// loadedMsg hace de respuesta de una carga de datos.
+type loadedMsg struct{}
 
 type recordTab struct{ msgs int }
 
