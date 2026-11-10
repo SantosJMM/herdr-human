@@ -44,6 +44,7 @@ func main() {
 		Detach:        detach,
 		Trace:         tracer,
 		CheckConfig:   checkConfig,
+		Version:       versionLine(),
 	}
 	if terminal {
 		ui.EnableVT(os.Stdout)
