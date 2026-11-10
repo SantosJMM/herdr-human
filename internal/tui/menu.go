@@ -103,7 +103,7 @@ func (m *Model) activate(kind string) tea.Cmd {
 		return nil
 	case "go":
 		m.chosen, m.hasChosen = t, true
-		return tea.Quit
+		return m.leave()
 	}
 	m.mode = modeList
 	if m.act == nil {
@@ -352,7 +352,7 @@ func (m Model) onModeKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.cancel != nil {
 			m.cancel()
 		}
-		return m, tea.Quit
+		return m, m.leave()
 	}
 	switch m.mode {
 	case modeMenu:

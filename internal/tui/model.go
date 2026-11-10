@@ -64,6 +64,10 @@ type Options struct {
 	// Embedded indica que el selector corre dentro de un popup de herdr, que ya
 	// dibuja el marco y el título: no se dibuja un segundo marco encima.
 	Embedded bool
+
+	// Hosted indica que el selector es una parte de otro modelo (la pantalla de
+	// inicio): al terminar no cierra el programa, envía LeaveMsg.
+	Hosted bool
 }
 
 // RefreshMsg es el resultado de volver a consultar una máquina.
@@ -106,6 +110,8 @@ type Model struct {
 	full bool
 	// embedded: el marco y el título los dibuja el popup de herdr (ver frame).
 	embedded bool
+	// hosted: al terminar avisa con LeaveMsg en vez de cerrar el programa.
+	hosted bool
 
 	width, height int
 
@@ -159,7 +165,7 @@ type Model struct {
 
 // New crea el selector con el cursor en el primer agente.
 func New(o Options) Model {
-	m := Model{inv: o.Inventory, st: o.Style, full: o.FullNames, embedded: o.Embedded, width: defaultWidth, height: defaultHeight,
+	m := Model{inv: o.Inventory, st: o.Style, full: o.FullNames, embedded: o.Embedded, hosted: o.Hosted, width: defaultWidth, height: defaultHeight,
 		act: o.Actions, ctx: o.Ctx, refresh: o.Refresh, branchOf: o.Branch, branches: map[string]string{}}
 	if m.ctx == nil {
 		m.ctx = context.Background()
@@ -235,6 +241,23 @@ func tick(start time.Time) tea.Cmd {
 
 // Result devuelve el agente elegido con Enter; false si se salió sin elegir.
 func (m Model) Result() (inventory.Target, bool) { return m.chosen, m.hasChosen }
+
+// LeaveMsg avisa de que un selector alojado (Options.Hosted) terminó: quien lo
+// aloja decide qué hacer. Chosen es false si se salió sin elegir un agente.
+type LeaveMsg struct {
+	Target inventory.Target
+	Chosen bool
+}
+
+// leave termina el selector: cierra el programa, o, si está alojado en otro
+// modelo, le avisa con LeaveMsg para que ese modelo siga en marcha.
+func (m Model) leave() tea.Cmd {
+	if !m.hosted {
+		return tea.Quit
+	}
+	msg := LeaveMsg{Target: m.chosen, Chosen: m.hasChosen}
+	return func() tea.Msg { return msg }
+}
 
 // Init empieza a escuchar las respuestas si la carga es progresiva.
 func (m Model) Init() tea.Cmd {
@@ -563,7 +586,7 @@ func (m Model) onKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	m.notice = ""
 	switch key {
 	case "ctrl+c":
-		return m, tea.Quit
+		return m, m.leave()
 	case "enter":
 		m.openMenu()
 		return m, nil
@@ -595,7 +618,7 @@ func (m Model) onKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	switch key {
 	case "q", "esc":
-		return m, tea.Quit
+		return m, m.leave()
 	case "j":
 		m.move(m.cursor + 1)
 	case "k":
