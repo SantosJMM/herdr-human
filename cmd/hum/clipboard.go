@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+
+	"github.com/SantosJMM/herdr-human/internal/herdr"
 )
 
 // copyToClipboard copia text al portapapeles con la herramienta de la plataforma.
@@ -17,6 +19,7 @@ func copyToClipboard(text string) error {
 	}
 	cmd := exec.Command(name, args...)
 	cmd.Stdin = strings.NewReader(text)
+	herdr.HideConsole(cmd)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("%s: %w (%s)", name, err, strings.TrimSpace(string(out)))
 	}

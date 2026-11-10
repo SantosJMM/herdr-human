@@ -90,6 +90,8 @@ type Env struct {
 	// CheckConfig ejecuta `herdr config check` sobre el archivo dado y devuelve lo
 	// que imprime; nulo desactiva el cambio de atajos, que no se aplica sin validar.
 	CheckConfig func(ctx context.Context, path string) (string, error)
+	// Version es lo que imprime `hum version` (p. ej. «0.1.2 (windows/amd64)»).
+	Version string
 }
 
 const usageText = `hum - friendly commands for herdr
@@ -155,6 +157,7 @@ Usage:
   hum machines [--json]                          list saved machines (enabled/disabled)
   hum machines enable|disable|toggle <name>      change a saved machine
   hum machines menu                              interactive enable/disable menu
+  hum version                                    print the version (also -v, --version)
   hum help
 
 <who> is an agent name, "machine/name", a partial or fuzzy name, an agent
@@ -223,6 +226,16 @@ func (a *app) dispatch(ctx context.Context, args []string) error {
 	switch cmd {
 	case "help", "-h", "--help":
 		fmt.Fprint(a.env.Stdout, usageText)
+		return nil
+	case "version", "-v", "--version":
+		if len(rest) > 0 {
+			return usagef("version takes no arguments")
+		}
+		v := a.env.Version
+		if v == "" {
+			v = "unknown"
+		}
+		fmt.Fprintf(a.env.Stdout, "hum %s\n", v)
 		return nil
 	case "ls":
 		return a.ls(ctx, rest)

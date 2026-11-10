@@ -104,6 +104,7 @@ El plugin `herdr-rename` sigue funcionando como respaldo; el selector ya renombr
 | `hum pick [--local] [--machine NOMBRE] [--full-names]` | Selector interactivo a pantalla completa (necesita una terminal); ver [Selector](#selector-hum-pick) |
 | `hum palette` | Paleta de comandos: busca con coincidencia difusa y ejecuta cualquier comando de herdr o acción de cualquier plugin (necesita una terminal; se abre con una tecla); ver [Paleta de comandos](#paleta-de-comandos-hum-palette) |
 | `hum keys ls [--all]` / `set <entrada> <tecla> [--force]` / `rm <entrada>` | Atajos de teclado de las entradas de la paleta en el `config.toml` de herdr, con validación previa y respaldo; ver [Asignar o cambiar atajos](#asignar-o-cambiar-atajos-de-teclado-ctrlk) |
+| `hum version` (`-v`, `--version`) | Imprime la versión de hum (la del manifiesto del plugin), el commit si se compiló dentro del repositorio y la plataforma: `hum 0.1.2 (commit abc1234, windows/amd64)` |
 | `hum trace on\|off\|show\|clear` | Traza de tiempos de los popups, para medir cuánto tardan en dibujar el primer cuadro; ver [Paleta de comandos](#paleta-de-comandos-hum-palette) |
 | `hum new <tipo> [carpeta] [--name N] [--machine M] [--no-focus] [--timeout MS]` | Abre un tab, arranca un agente en él y lo nombra; imprime `maquina/pane`. Sin argumentos, en una terminal pregunta tipo, carpeta y nombre; ver [Crear un agente](#crear-un-agente-hum-new) |
 | `hum look <quién> [--lines N]` | Lee la salida reciente de un agente |
