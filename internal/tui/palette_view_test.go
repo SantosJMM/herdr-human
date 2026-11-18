@@ -165,3 +165,28 @@ func TestPaletteQuestionListsHintToo(t *testing.T) {
 	_, _ = in.Write([]byte("\x1b"))
 	finish(t, done)
 }
+
+// Dentro del popup de herdr el título del marco lo dibuja herdr (siempre
+// «Command palette»), así que la pregunta de cada paso debe verse en la propia
+// vista: sin ella una lista de máquinas no dice qué se va a hacer con la elegida.
+func TestEmbeddedPaletteShowsTheQuestionOfEachStep(t *testing.T) {
+	in, scr, done := runPalette(t, tui.PaletteOptions{
+		Entries:  []palette.Entry{nativeEntry("hum.machine.rename", "Machine: Rename…")},
+		Embedded: true,
+		Resolve: func(ctx context.Context, e palette.Entry, p palette.Prompter) ([]string, bool, error) {
+			id, ok, err := p.Choose(ctx, "machine to rename", []palette.Choice{{Value: "id1", Label: "odoous (GVY-Odoous)"}})
+			if err != nil || !ok {
+				return nil, false, err
+			}
+			label, ok, err := p.Input(ctx, palette.InputSpec{Prompt: "new label", Required: true})
+			return []string{"machines", "rename", id, "--", label}, ok, err
+		},
+	})
+	scr.waitFor(t, "Machine: Rename")
+	_, _ = in.Write([]byte("\r"))
+	scr.waitFor(t, "machine to rename")
+	_, _ = in.Write([]byte("\r"))
+	scr.waitFor(t, "new label")
+	_, _ = in.Write([]byte("\x1b"))
+	finish(t, done)
+}
