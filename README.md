@@ -447,7 +447,7 @@ de abajo).
 
 #### Comandos de `hum` en la paleta
 
-Cuatro entradas con origen `hum` (en `commands.json` llevan `"runner": "hum"`):
+Cinco entradas con origen `hum` (en `commands.json` llevan `"runner": "hum"`):
 
 | Entrada | Ejecuta | Pregunta |
 |---|---|---|
@@ -455,6 +455,7 @@ Cuatro entradas con origen `hum` (en `commands.json` llevan `"runner": "hum"`):
 | *Agent: Say…* | `hum say <agente> -- <mensaje>` | agente y mensaje |
 | *Agent: Rename…* | `hum name <agente> <nombre>` | agente y nombre |
 | *Agent: Notify me when it settles…* | `hum wait <agente> --notify` | agente; avisa con una notificación de herdr cuando termine o te necesite |
+| *Machine: Rename…* | `hum machines rename <máquina> -- <etiqueta>` | máquina guardada y etiqueta nueva; se niega si otra máquina ya usa esa etiqueta |
 
 Se ejecutan en un proceso aparte (`hum palette run --hum …`) con el mismo reintento
 de `ui_busy` que los de herdr. Si fallan, avisan con una notificación; `hum wait`

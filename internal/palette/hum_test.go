@@ -26,7 +26,7 @@ func humEntries(t *testing.T) map[string]Entry {
 
 func TestHumCommandsComeFromTheCatalogWithTheirOwnSource(t *testing.T) {
 	got := humEntries(t)
-	for _, id := range []string{"hum.agent.new", "hum.agent.say", "hum.agent.name", "hum.agent.notify"} {
+	for _, id := range []string{"hum.agent.new", "hum.agent.say", "hum.agent.name", "hum.agent.notify", "hum.machine.rename"} {
 		e, ok := got[id]
 		if !ok {
 			t.Errorf("%s is missing from the catalog", id)
@@ -108,6 +108,8 @@ func TestHumCommandsBuildTheExpectedHumLines(t *testing.T) {
 		{"hum.agent.say", &scripted{choices: []string{"p1"}, inputs: []string{"--force it"}}, []string{"say", "p1", "--", "--force it"}},
 		{"hum.agent.name", &scripted{choices: []string{"p1"}, inputs: []string{"docs"}}, []string{"name", "p1", "docs"}},
 		{"hum.agent.notify", &scripted{choices: []string{"p2"}}, []string{"wait", "p2", "--notify"}},
+		// La etiqueta va tras "--" para que una que empiece por "-" llegue literal y la rechace el servicio.
+		{"hum.machine.rename", &scripted{choices: []string{"id1"}, inputs: []string{"servidor dos"}}, []string{"machines", "rename", "id1", "--", "servidor dos"}},
 	} {
 		argv, ok, err := Resolve(context.Background(), got[tt.id], vals, tt.answers)
 		if err != nil || !ok || !slices.Equal(argv, tt.want) {
