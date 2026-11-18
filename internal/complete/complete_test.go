@@ -275,11 +275,17 @@ func TestNewCompletesKindsMachinePrefixesAndFolders(t *testing.T) {
 func TestMachinesAndCompletionSubcommands(t *testing.T) {
 	t.Parallel()
 
-	if got := values(complete.Complete("hum machines ", sample())); !reflect.DeepEqual(got, []string{"enable", "disable", "toggle", "menu"}) {
+	if got := values(complete.Complete("hum machines ", sample())); !reflect.DeepEqual(got, []string{"enable", "disable", "toggle", "rename", "menu"}) {
 		t.Errorf("machines = %v", got)
 	}
 	if got := values(complete.Complete("hum machines enable ", sample())); !reflect.DeepEqual(got, []string{"odoous", "WSL Ubuntu"}) {
 		t.Errorf("machines enable = %v", got)
+	}
+	if got := values(complete.Complete("hum machines rename ", sample())); !reflect.DeepEqual(got, []string{"odoous", "WSL Ubuntu"}) {
+		t.Errorf("machines rename = %v", got)
+	}
+	if got := complete.Complete("hum machines rename odoous ", sample()); len(got.Candidates) != 0 {
+		t.Errorf("the new label is free text: %v", got)
 	}
 	if got := complete.Complete("hum machines menu ", sample()); len(got.Candidates) != 0 {
 		t.Errorf("menu takes nothing: %v", got)

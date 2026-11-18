@@ -156,6 +156,7 @@ Usage:
                                                 blocked, 4 on timeout
   hum machines [--json]                          list saved machines (enabled/disabled)
   hum machines enable|disable|toggle <name>      change a saved machine
+  hum machines rename <name> <new label...>      rename a saved machine
   hum machines menu                              interactive enable/disable menu
   hum version                                    print the version (also -v, --version)
   hum help

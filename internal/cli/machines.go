@@ -27,6 +27,8 @@ func (a *app) machines(ctx context.Context, args []string) error {
 		return a.machineList(ctx, rest)
 	case "enable", "disable", "toggle":
 		return a.machineChange(ctx, sub, rest)
+	case "rename":
+		return a.machineRename(ctx, rest)
 	case "menu":
 		return a.machineMenu(ctx, rest)
 	default:
@@ -113,6 +115,41 @@ func (a *app) machineChange(ctx context.Context, verb string, args []string) err
 	default:
 		fmt.Fprintf(a.env.Stdout, "disabled %s (remote sessions and processes keep running)\n", res.Profile.Label)
 	}
+	return nil
+}
+
+// machineRename cambia la etiqueta de una máquina guardada. La etiqueta nueva
+// puede llevar espacios, así que son todos los argumentos tras el nombre.
+func (a *app) machineRename(ctx context.Context, args []string) error {
+	fs := newFlagSet("machines rename")
+	rest, err := parse(fs, args)
+	if err != nil {
+		return err
+	}
+	if len(rest) < 2 {
+		return usagef("usage: hum machines rename <name> <new label...>")
+	}
+
+	svc := machines.Service{Runner: a.env.Runner}
+	profiles, err := svc.List(ctx)
+	if err != nil {
+		return err
+	}
+	selected, err := machines.Find(profiles, rest[0])
+	if err != nil {
+		return err
+	}
+
+	res, err := svc.Rename(ctx, selected, strings.Join(rest[1:], " "))
+	if err != nil {
+		return err
+	}
+	if !res.Changed {
+		fmt.Fprintf(a.env.Stdout, "%s already has that label\n", res.Profile.Label)
+		return nil
+	}
+	a.invalidateCache()
+	fmt.Fprintf(a.env.Stdout, "renamed %s to %s\n", selected.Label, res.Profile.Label)
 	return nil
 }
 

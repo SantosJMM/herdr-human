@@ -119,6 +119,7 @@ El plugin `herdr-rename` sigue funcionando como respaldo; el selector ya renombr
 | `hum wait <quién> [--until ESTADO]… [--timeout MS] [--notify]` | Espera a que termine (por defecto `idle`, `done` o `blocked`); `--notify` muestra un aviso de herdr en esta máquina |
 | `hum machines [--json]` | Lista las máquinas SSH guardadas con su estado (ENABLED/DISABLED) |
 | `hum machines enable\|disable\|toggle <nombre>` | Habilita o deshabilita una máquina por etiqueta (o prefijo único) |
+| `hum machines rename <nombre> <etiqueta nueva…>` | Cambia la etiqueta de una máquina guardada (la nueva puede llevar espacios; si empieza por `-`, ponla tras `--`). Se niega si otra máquina ya usa esa etiqueta (sin distinguir mayúsculas), si está vacía o lleva caracteres de control |
 | `hum machines menu` | Menú interactivo: número = alternar, `R` refresca, `Q` sale |
 
 ### Máquinas guardadas
@@ -131,6 +132,11 @@ script original: relee el perfil por su ID inmutable antes de mutar, se niega si
 desapareció o si su estado cambió desde que lo viste, no hace nada si ya está en
 el estado pedido, confirma el resultado leyendo de nuevo y **nunca reintenta** una
 mutación de resultado incierto.
+
+`hum machines rename` sigue esas mismas garantías: relee el perfil por su ID antes de
+renombrar, se niega si desapareció o si otro cliente le cambió la etiqueta desde que la viste, no hace
+nada si ya tiene esa etiqueta, confirma releyendo y no reintenta. Renombrar borra la caché de inventario,
+porque los nombres `maquina/` se resuelven por etiqueta. Un renombrado no afecta a las sesiones remotas.
 
 El plugin añade la acción *Manage saved machines (hum machines menu)* a la paleta
 (F1); puedes asignarle un atajo:
