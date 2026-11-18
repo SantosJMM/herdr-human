@@ -198,7 +198,8 @@ func TestSetEnabledDoesNotRetryAFailedMutation(t *testing.T) {
 }
 
 func renameCmd(id, label string) []string {
-	return []string{"machine", "rename", "--label", label, id}
+	// herdr exige el ID antes de --label (su ayuda de clap dice lo contrario).
+	return []string{"machine", "rename", id, "--label", label}
 }
 
 func TestRenameChangesTheLabelAndConfirmsIt(t *testing.T) {

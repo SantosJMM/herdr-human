@@ -258,7 +258,7 @@ func TestMachinesRenameChangesTheLabel(t *testing.T) {
 	fake := herdrtest.New()
 	// Lectura para elegir, relectura previa y lectura de confirmación.
 	fake.Sequence("", machineListJSON, profilesJSON(true, false), profilesJSON(true, false), renamed)
-	fake.Reply("", []string{"machine", "rename", "--label", "servidor dos", "id1"}, "ok")
+	fake.Reply("", []string{"machine", "rename", "id1", "--label", "servidor dos"}, "ok")
 
 	out := runIn(t, fake, "", "machines", "rename", "remoto2", "servidor", "dos")
 	if out.code != 0 || !strings.Contains(out.stdout, "renamed remoto2 to servidor dos") {
