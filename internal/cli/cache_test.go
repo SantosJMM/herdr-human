@@ -186,6 +186,14 @@ func TestCreatingOrRenamingInvalidatesTheCache(t *testing.T) {
 				t.Fatalf("name: %q", out.stderr)
 			}
 		},
+		"machines rename": func(t *testing.T, f *herdrtest.Fake, env cli.Env) {
+			renamed := strings.Replace(profilesJSON(true, false), `"label":"odoous"`, `"label":"odoo-prod"`, 1)
+			f.Sequence("", machineListJSON, profilesJSON(true, false), profilesJSON(true, false), renamed)
+			f.Reply("", []string{"machine", "rename", "id4", "--label", "odoo-prod"}, okReply)
+			if out := runEnv(t, f, env, "machines", "rename", "odoous", "odoo-prod"); out.code != 0 {
+				t.Fatalf("machines rename: %q", out.stderr)
+			}
+		},
 		"new": func(t *testing.T, f *herdrtest.Fake, env cli.Env) {
 			f.Reply("odoous", []string{"tab", "create", "--label", "claude", "--focus"}, newTab)
 			f.Reply("odoous", []string{"agent", "start", "claude", "--kind", "claude", "--pane", "wS:pA"}, newStarted)

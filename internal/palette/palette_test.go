@@ -32,8 +32,8 @@ func TestNativeCatalogShipsWithTheBinary(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(entries) != 46 {
-		t.Fatalf("want the 31 commands of the original catalog plus the 11 added here and the 4 of hum, got %d", len(entries))
+	if len(entries) != 47 {
+		t.Fatalf("want the 31 commands of the original catalog plus the 11 added here and the 5 of hum, got %d", len(entries))
 	}
 	seen := map[string]bool{}
 	for _, e := range entries {

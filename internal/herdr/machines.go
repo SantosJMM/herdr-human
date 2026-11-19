@@ -75,3 +75,12 @@ func SetEnabled(ctx context.Context, r Runner, id string, enabled bool) error {
 	_, err := Text(ctx, r, "", []string{"machine", verb, id})
 	return err
 }
+
+// SetLabel cambia la etiqueta de un perfil por su ID. No reintenta ni
+// verifica: quien la llama valida la etiqueta (no puede empezar por "-") y
+// decide cómo confirmar el resultado. El ID va antes de --label: es lo que
+// exige herdr aunque su ayuda lo muestre al revés.
+func SetLabel(ctx context.Context, r Runner, id, label string) error {
+	_, err := Text(ctx, r, "", []string{"machine", "rename", id, "--label", label})
+	return err
+}

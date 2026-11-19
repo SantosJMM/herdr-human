@@ -46,7 +46,7 @@ var excluded = map[string]string{
 
 	// Argumentos libres que la paleta no sabe pedir bien.
 	"pane input": reasonFreeForm, "pane send-text": reasonFreeForm, "pane send-keys": reasonFreeForm, "pane run": reasonFreeForm,
-	"agent send-keys": reasonFreeForm, "machine add": reasonFreeForm, "machine rename": reasonFreeForm,
+	"agent send-keys": reasonFreeForm, "machine add": reasonFreeForm,
 
 	// Código de terceros.
 	"plugin install": reasonThirdParty, "plugin update": reasonThirdParty, "plugin link": reasonThirdParty,
@@ -60,7 +60,7 @@ var excluded = map[string]string{
 	"plugin pane close": reasonPlumbing,
 
 	// hum tiene un flujo propio, con preguntas.
-	"agent prompt": reasonHum, "agent rename": reasonHum, "agent start": reasonHum,
+	"agent prompt": reasonHum, "agent rename": reasonHum, "agent start": reasonHum, "machine rename": reasonHum,
 }
 
 // Excluded devuelve, por comando de herdr, el motivo de que no esté en la paleta.

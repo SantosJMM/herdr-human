@@ -384,6 +384,18 @@
       "arguments": [{ "source": "select", "selector": "machines", "prompt": "machine to disable" }]
     },
     {
+      "id": "hum.machine.rename",
+      "title": "Machine: Rename…",
+      "description": "Change the label of a saved SSH machine (hum machines rename). Refuses a label another machine already uses.",
+      "runner": "hum",
+      "command": ["machines", "rename"],
+      "arguments": [
+        { "source": "select", "selector": "machines", "prompt": "machine to rename" },
+        { "source": "literal", "value": "--" },
+        { "source": "input", "prompt": "new label", "required": true }
+      ]
+    },
+    {
       "id": "plugin.enable",
       "title": "Plugin: Enable…",
       "description": "Enable an installed plugin.",

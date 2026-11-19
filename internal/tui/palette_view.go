@@ -64,6 +64,11 @@ func (m PaletteModel) describeSelected() string {
 	if m.notice != "" {
 		return m.notice
 	}
+	// Incrustado, la pregunta del paso se mantiene a la vista aunque ya se haya
+	// escrito algo (la barra solo la muestra mientras está vacía).
+	if m.opts.Embedded && (m.mode == palChoose || m.mode == palInput) {
+		return m.prompt
+	}
 	i, ok := m.list.current()
 	if !ok {
 		return ""
@@ -84,9 +89,9 @@ func (m PaletteModel) searchLine(b box) (left, right string) {
 	cursor := dim(b.cursor)
 	switch m.mode {
 	case palInput:
-		return "❯ " + withCursor(m.input.query, m.input.qpos, cursor), ""
+		return "❯ " + withCursor(m.input.query, m.input.qpos, cursor) + placeholder(m.input.query, m.stepHint(""), dim), ""
 	case palChoose:
-		return "❯ " + withCursor(m.choices.query, m.choices.qpos, cursor) + placeholder(m.choices.query, "type to filter", dim),
+		return "❯ " + withCursor(m.choices.query, m.choices.qpos, cursor) + placeholder(m.choices.query, m.stepHint("type to filter"), dim),
 			dim(fmt.Sprintf("%d/%d", len(m.choices.vis), len(m.choices.rows)))
 	case palBusy, palError:
 		return dim("❯ working…"), ""
@@ -102,6 +107,20 @@ func (m PaletteModel) searchLine(b box) (left, right string) {
 		return left, dim(count) + " " + m.st.Paint(ui.RoleBlocked, b.sep+" plugins unavailable")
 	}
 	return left, dim(count)
+}
+
+// stepHint es el texto tenue de la barra de un paso (elegir o escribir). Con el
+// marco propio el título ya dice qué se pregunta; incrustado, el título lo
+// dibuja herdr y sería siempre «Command palette», así que la pregunta se dice
+// aquí. base es lo que se muestra con marco propio.
+func (m PaletteModel) stepHint(base string) string {
+	if !m.opts.Embedded || m.prompt == "" {
+		return base
+	}
+	if base == "" {
+		return m.prompt
+	}
+	return m.prompt + " · " + base
 }
 
 // placeholder es el texto tenue de ayuda que acompaña a una búsqueda vacía, como

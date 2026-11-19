@@ -45,7 +45,7 @@ var Shells = []string{"bash", "zsh", "powershell"}
 var (
 	statuses       = []string{"idle", "working", "blocked", "done", "unknown"}
 	colors         = []string{"auto", "always", "never"}
-	machineActions = []string{"enable", "disable", "toggle", "menu"}
+	machineActions = []string{"enable", "disable", "toggle", "rename", "menu"}
 )
 
 // order es el orden en que se sugieren los subcomandos.
@@ -222,7 +222,7 @@ func positional(cmd string, spec []Flag, args []string, cur string, src Source) 
 		return filter(plain(Shells), cur)
 	case cmd == "machines" && idx == 0:
 		return filter(plain(machineActions), cur)
-	case cmd == "machines" && idx == 1 && (pos[0] == "enable" || pos[0] == "disable" || pos[0] == "toggle"):
+	case cmd == "machines" && idx == 1 && (pos[0] == "enable" || pos[0] == "disable" || pos[0] == "toggle" || pos[0] == "rename"):
 		if src == nil {
 			return Result{}
 		}

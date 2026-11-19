@@ -250,3 +250,71 @@ func TestMachinesMenuQuitsOnEndOfInput(t *testing.T) {
 		t.Errorf("code = %d, want 0 without stdin", out.code)
 	}
 }
+
+func TestMachinesRenameChangesTheLabel(t *testing.T) {
+	t.Parallel()
+
+	renamed := strings.Replace(profilesJSON(true, false), `"label":"remoto2"`, `"label":"servidor dos"`, 1)
+	fake := herdrtest.New()
+	// Lectura para elegir, relectura previa y lectura de confirmación.
+	fake.Sequence("", machineListJSON, profilesJSON(true, false), profilesJSON(true, false), renamed)
+	fake.Reply("", []string{"machine", "rename", "id1", "--label", "servidor dos"}, "ok")
+
+	out := runIn(t, fake, "", "machines", "rename", "remoto2", "servidor", "dos")
+	if out.code != 0 || !strings.Contains(out.stdout, "renamed remoto2 to servidor dos") {
+		t.Errorf("code=%d stdout=%q stderr=%q", out.code, out.stdout, out.stderr)
+	}
+	if n := mutations(fake, "rename"); n != 1 {
+		t.Errorf("rename called %d times, want 1", n)
+	}
+}
+
+func TestMachinesRenameAlreadyThatLabel(t *testing.T) {
+	t.Parallel()
+
+	fake := herdrtest.New()
+	fake.Reply("", machineListJSON, profilesJSON(true, false))
+
+	out := runIn(t, fake, "", "machines", "rename", "odoous", "odoous")
+	if out.code != 0 || !strings.Contains(out.stdout, "odoous already has that label") {
+		t.Errorf("code=%d stdout=%q stderr=%q", out.code, out.stdout, out.stderr)
+	}
+	if n := mutations(fake, "rename"); n != 0 {
+		t.Errorf("rename called %d times, want 0", n)
+	}
+}
+
+func TestMachinesRenameRefusesATakenOrInvalidLabel(t *testing.T) {
+	t.Parallel()
+
+	for name, args := range map[string][]string{
+		"taken": {"machines", "rename", "remoto2", "odoous"},
+		// Tras "--" la etiqueta llega literal y el servicio la rechaza.
+		"invalid": {"machines", "rename", "remoto2", "--", "-x"},
+	} {
+		fake := herdrtest.New()
+		fake.Reply("", machineListJSON, profilesJSON(true, false))
+		out := runIn(t, fake, "", args...)
+		if out.code != 1 || out.stderr == "" {
+			t.Errorf("%s: code=%d stderr=%q, want a plain error (exit 1)", name, out.code, out.stderr)
+		}
+		if n := mutations(fake, "rename"); n != 0 {
+			t.Errorf("%s: rename called %d times, want 0", name, n)
+		}
+	}
+}
+
+func TestMachinesRenameUsageErrors(t *testing.T) {
+	t.Parallel()
+
+	for _, args := range [][]string{
+		{"machines", "rename"},
+		{"machines", "rename", "odoous"},
+	} {
+		fake := herdrtest.New()
+		fake.Reply("", machineListJSON, profilesJSON(true, false))
+		if out := runIn(t, fake, "", args...); out.code != 2 || !strings.Contains(out.stderr, "usage: hum machines rename") {
+			t.Errorf("hum %v: code=%d stderr=%q, want a usage error", args, out.code, out.stderr)
+		}
+	}
+}

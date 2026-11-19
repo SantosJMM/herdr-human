@@ -1,9 +1,11 @@
 # herdr-human
 
-Comandos de herdr pensados para personas: nombres en vez de IDs, todas las
-máquinas en una sola vista y un verbo por intención. El comando se llama `hum`.
+[Español](README.es.md)
 
-Autor: [SantosJMM](https://github.com/SantosJMM) · módulo Go
+Human-friendly herdr commands: names instead of IDs, every machine in a single
+view, and one verb per intent. The command is called `hum`.
+
+Author: [SantosJMM](https://github.com/SantosJMM) · Go module
 `github.com/SantosJMM/herdr-human`.
 
 ```text
@@ -15,125 +17,165 @@ odoous                                                          1.3s
  odoo-inc
  └─ ○ w1:p2  odoous-odoo-dev                           codex      idle
 
-$ hum say odoous/odoo-dev "corre los tests"
+$ hum say odoous/odoo-dev "run the tests"
 sent to odoous/w1:p2 (odoous-odoo-dev)
 ```
 
-## Instalación
+## Installation
 
-### Como plugin de herdr
+### As a herdr plugin
 
 ```powershell
 herdr plugin install SantosJMM/herdr-human
 ```
 
-El paso de instalación (`scripts/install.sh` en Linux y macOS,
-`scripts/install.ps1` en Windows) descarga el binario ya compilado del release de
-GitHub cuya etiqueta coincide con la `version` del manifest, comprueba su
-SHA-256 contra el `SHA256SUMS` del mismo release y lo deja en `bin/hum`. Si algo
-falla (no hay release, no hay red, tu plataforma no tiene binario o el SHA-256 no
-coincide) **y hay `go` en el `PATH`**, lo compila desde el código. Si tampoco hay
-Go, la instalación termina con un mensaje que dice qué falta y cómo seguir. Un
-binario descargado que no pasa la comprobación nunca se instala.
+The install step (`scripts/install.sh` on Linux and macOS, `scripts/install.ps1`
+on Windows) downloads the prebuilt binary from the GitHub release whose tag
+matches the manifest's `version`, checks its SHA-256 against the release's
+`SHA256SUMS`, and places it in `bin/hum`. If anything fails (no release, no
+network, your platform has no binary, or the SHA-256 does not match) **and `go` is
+in the `PATH`**, it builds from source. If there is no Go either, the install
+ends with a message saying what is missing and how to continue. A downloaded
+binary that fails the check is never installed.
 
-Plataformas con binario: Linux, macOS y Windows, en `amd64` y `arm64`. El
-`SHA256SUMS` viaja en el mismo release que los binarios, así que protege contra
-descargas corruptas, no contra alguien que controle el release.
+Platforms with a binary: Linux, macOS and Windows, on `amd64` and `arm64`. The
+`SHA256SUMS` ships in the same release as the binaries, so it protects against
+corrupted downloads, not against someone who controls the release.
 
-### Compilar a mano
+### Building by hand
 
-No necesita nada instalado para *usarlo*: es un único ejecutable estático.
-Para compilarlo hace falta Go (el `go.mod` pide `go 1.27.3`; con
-`GOTOOLCHAIN=auto`, el valor por defecto, Go descarga esa versión solo).
+You need nothing installed to *use* it: it is a single static executable. To
+build it you need Go (`go.mod` asks for `go 1.27.3`; with `GOTOOLCHAIN=auto`,
+the default, Go downloads that version by itself).
 
 ```powershell
-go build -o bin\hum.exe .\cmd\hum                                # binario que usa el plugin
-go install .\cmd\hum                                             # lo deja en %USERPROFILE%\go\bin
+go build -o bin\hum.exe .\cmd\hum                                # binary used by the plugin
+go install .\cmd\hum                                             # puts it in %USERPROFILE%\go\bin
 GOOS=linux GOARCH=amd64 go build -o bin/hum ./cmd/hum            # Linux
-herdr plugin link C:\ruta\a\herdr-human     # registrar el plugin
+herdr plugin link C:\path\to\herdr-human     # register the plugin
 ```
 
-herdr **no** añade el `bin` del plugin al `PATH`: el popup funciona porque el
-manifest llama a `$HERDR_PLUGIN_ROOT\bin\hum.exe`. Para escribir `hum` en una
-terminal usa `go install` (el directorio `go\bin` suele estar ya en el `PATH`).
+herdr does **not** add the plugin's `bin` to the `PATH`: the popup works because
+the manifest calls `$HERDR_PLUGIN_ROOT\bin\hum.exe`. To type `hum` in a terminal,
+use `go install` (the `go\bin` directory is usually already in the `PATH`).
 
-> El comando se llama `hum` y no `hh` porque `C:\Windows\hh.exe` (el visor de
-> ayuda HTML de Windows) aparece antes en el `PATH` y se ejecutaría en su lugar.
+> The command is called `hum` and not `hh` because `C:\Windows\hh.exe` (the
+> Windows HTML Help viewer) comes first in the `PATH` and would run instead.
 
-El plugin añade estas acciones a la paleta de comandos (F1):
+### On WSL
 
-| Acción | Id (Windows / Linux y macOS) | Abre |
+Meant for a WSL that already has herdr but not Go: the Linux binary is built
+from Windows and WSL uses **its own clone** of the repository (example with the
+`Ubuntu` distro).
+
+> **Windows and WSL must not share the `bin/` folder.** On Windows,
+> `CreateProcessW` resolves `bin\hum` to the file named `hum` before `hum.exe`;
+> if that is a Linux executable, every plugin action (F1 included) fails silently
+> with error 193. Never copy a Linux `bin/hum` into the folder Windows has linked.
+
+```powershell
+# 1. Clone inside WSL (the clone lives on the Linux disk, which is faster)
+wsl.exe -d Ubuntu -- bash -lc 'git clone https://github.com/SantosJMM/herdr-human ~/.local/share/herdr-human'
+
+# 2. Build the Linux binary from Windows, OUTSIDE the folder Windows uses
+$env:GOOS = "linux"; $env:GOARCH = "amd64"; $env:CGO_ENABLED = "0"
+go build -o $env:TEMP\hum-linux .\cmd\hum
+Remove-Item Env:GOOS, Env:GOARCH, Env:CGO_ENABLED
+
+# 3. Install it in the WSL clone and in its PATH, and register the plugin
+$src = (wsl.exe -d Ubuntu -- wslpath -a "$env:TEMP\hum-linux").Trim()
+wsl.exe -d Ubuntu -- bash -lc "mkdir -p ~/.local/share/herdr-human/bin ~/.local/bin && install -m 755 '$src' ~/.local/share/herdr-human/bin/hum && install -m 755 '$src' ~/.local/bin/hum && herdr plugin link ~/.local/share/herdr-human"
+```
+
+- After updating the code: `git pull` in the WSL clone and repeat steps 2 and 3
+  (the plugin link is done only once).
+- If WSL does have Go, `git pull` and `go build -o bin/hum ./cmd/hum` inside the
+  clone are enough.
+
+The plugin adds these actions to the command palette (F1):
+
+| Action | Id (Windows / Linux and macOS) | Opens |
 |---|---|---|
-| *Talk to agents (hum pick)* | `pick-windows` / `pick-unix` | el selector, en un popup del 90 % × 80 % |
-| *Who needs me? (hum attention)* | `attention-windows` / `attention-unix` | quién te necesita |
-| *Show all agents (hum ls)* | `overview-windows` / `overview-unix` | la lista de todos los agentes |
-| *Manage saved machines (hum machines menu)* | `machines-windows` / `machines-unix` | el menú de máquinas |
-| *Open command palette* | `palette` | la [paleta de comandos](#paleta-de-comandos-hum-palette) |
+| *Talk to agents (hum pick)* | `pick-windows` / `pick-unix` | the picker, in a 90 % × 80 % popup |
+| *Who needs me? (hum attention)* | `attention-windows` / `attention-unix` | who needs you |
+| *Show all agents (hum ls)* | `overview-windows` / `overview-unix` | the list of all agents |
+| *Manage saved machines (hum machines menu)* | `machines-windows` / `machines-unix` | the machines menu |
+| *Open command palette* | `palette` | the [command palette](#command-palette-hum-palette) |
 
-Todas arrancan `bin/hum` directamente, sin PowerShell ni `sh` de por medio (que en
-Windows cuestan cerca de un segundo por arranque). Los ids `-windows` y `-unix` de
-cada acción hacen lo mismo; se conservan los dos porque los atajos de `config.toml`
-ya los usan. Las vistas que solo muestran texto (*Show all agents*, *Who needs me?*)
-esperan **cualquier tecla** antes de cerrarse, para que dé tiempo a leerlas.
+They all start `bin/hum` directly, with no PowerShell or `sh` in between (which
+on Windows cost about a second per launch). The `-windows` and `-unix` ids of
+each action do the same thing; both are kept because the `config.toml` shortcuts
+already use them. The views that only show text (*Show all agents*, *Who needs
+me?*) wait for **any key** before closing, so you have time to read them.
 
-Puedes asignarles un atajo en `config.toml`; el selector complementa al *Goto* de
-herdr (`prefix+g`, que no se toca) con acciones y todas las máquinas:
+You can bind a key to them in `config.toml`; the picker complements herdr's
+*Goto* (`prefix+g`, which is left untouched) with actions and all machines:
 
 ```toml
 [[keys.command]]
 key = "prefix+shift+l"
 type = "plugin_action"
-command = "herdr-human.pick-windows"   # en Linux/macOS: herdr-human.pick-unix
+command = "herdr-human.pick-windows"   # on Linux/macOS: herdr-human.pick-unix
 description = "talk to agents (hum pick)"
 ```
 
-El plugin usa el binario de `bin/`: tras actualizar el código, vuelve a compilarlo
-(`go build -o bin\hum.exe .\cmd\hum`) o los popups seguirán con la versión anterior.
-El plugin `herdr-rename` sigue funcionando como respaldo; el selector ya renombra
-(acción *Rename…*).
+The plugin uses the binary in `bin/`: after updating the code, rebuild it
+(`go build -o bin\hum.exe .\cmd\hum`) or the popups will keep running the old
+version. The `herdr-rename` plugin keeps working as a fallback; the picker
+already renames (*Rename…* action).
 
-## Comandos
+## Commands
 
-| Comando | Qué hace |
+| Command | What it does |
 |---|---|
-| `hum ls [--json] [--verbose] [--local] [--machine NOMBRE] [--server-timeout 3s] [--fresh] [--color auto\|always\|never] [--full-names]` | Lista agentes: máquina → workspace → agente, con el estado de cada máquina en su encabezado |
-| `hum id <quién> [--json] [--cmd]` | Imprime el pane id; `--cmd` da el prefijo `herdr --machine … agent prompt <id>` |
-| `hum say <quién> <mensaje…> [--wait] [--timeout MS]` | Envía un mensaje a un agente |
-| `hum ask <quién> <mensaje…> [--timeout MS] [--lines N]` | Envía, espera a que el agente se asiente y imprime solo la respuesta en stdout (progreso y origen en stderr) |
-| `hum attention [--json] [--watch [--interval 5s] [--notify]]` | Quién te necesita: `blocked` y `done` primero, luego `working`; los `idle` solo se cuentan. `--watch` redibuja; `--notify` avisa una vez por transición a `blocked`/`done` |
-| `hum pick [--local] [--machine NOMBRE] [--full-names]` | Selector interactivo a pantalla completa (necesita una terminal); ver [Selector](#selector-hum-pick) |
-| `hum palette` | Paleta de comandos: busca con coincidencia difusa y ejecuta cualquier comando de herdr o acción de cualquier plugin (necesita una terminal; se abre con una tecla); ver [Paleta de comandos](#paleta-de-comandos-hum-palette) |
-| `hum keys ls [--all]` / `set <entrada> <tecla> [--force]` / `rm <entrada>` | Atajos de teclado de las entradas de la paleta en el `config.toml` de herdr, con validación previa y respaldo; ver [Asignar o cambiar atajos](#asignar-o-cambiar-atajos-de-teclado-ctrlk) |
-| `hum version` (`-v`, `--version`) | Imprime la versión de hum (la del manifiesto del plugin), el commit si se compiló dentro del repositorio y la plataforma: `hum 0.1.2 (commit abc1234, windows/amd64)` |
-| `hum trace on\|off\|show\|clear` | Traza de tiempos de los popups, para medir cuánto tardan en dibujar el primer cuadro; ver [Paleta de comandos](#paleta-de-comandos-hum-palette) |
-| `hum new <tipo> [carpeta] [--name N] [--machine M] [--no-focus] [--timeout MS]` | Abre un tab, arranca un agente en él y lo nombra; imprime `maquina/pane`. Sin argumentos, en una terminal pregunta tipo, carpeta y nombre; ver [Crear un agente](#crear-un-agente-hum-new) |
-| `hum look <quién> [--lines N]` | Lee la salida reciente de un agente |
-| `hum name <quién> <nombre>` / `--clear` | Renombra agente **y** pane a la vez |
-| `hum worktree ls [<quién>]` | Lista los worktrees de Git (del workspace del agente, local o remoto; sin `<quién>`, de la carpeta actual) |
-| `hum worktree new <rama> [<quién>] [--base REF] [--label TEXTO] [--no-focus]` | Crea un worktree con una rama nueva. **hum nunca pasa `--trust-repository`**: si herdr pide confiar en el repositorio, te lo indica y lo haces tú con herdr |
-| `hum worktree rm <quién> [--force] [--yes]` | **Borra** el checkout del worktree del agente. Pregunta (`[y/N]`); sin terminal exige `--yes` |
-| `hum alias set <nombre> <quién>` / `rm <nombre>` / `ls` | Nombres cortos para agentes: tras `hum alias set docs odoous/odoo-dev`, `hum say docs "…"` funciona aunque el título del agente cambie. **El alias gana** sobre cualquier otra coincidencia, se sigue una sola vez (un alias no apunta a otro alias) y no se comprueba al guardarlo: se resuelve al usarlo. Se guardan en `aliases.json` dentro de `HERDR_PLUGIN_CONFIG_DIR` o, si no existe, en la carpeta de configuración del usuario (`…\herdr-human\`). Un archivo corrupto no rompe la resolución normal: `hum alias ls` te dice qué pasa y no se sobrescribe |
-| `hum close --tab\|--workspace <quién> [--yes]` | **Cierra** el tab o el workspace del agente y detiene todo lo que corre dentro. En una terminal pregunta (`[y/N]`; cualquier otra respuesta cancela); sin terminal exige `--yes` |
-| `hum rename --tab\|--workspace <quién> <etiqueta…>` | Renombra el tab o el workspace del agente (la etiqueta puede llevar espacios; no puede empezar por `-` ni llevar caracteres de control) |
-| `hum go <quién>` | Enfoca un agente |
-| `hum wait <quién> [--until ESTADO]… [--timeout MS] [--notify]` | Espera a que termine (por defecto `idle`, `done` o `blocked`); `--notify` muestra un aviso de herdr en esta máquina |
-| `hum machines [--json]` | Lista las máquinas SSH guardadas con su estado (ENABLED/DISABLED) |
-| `hum machines enable\|disable\|toggle <nombre>` | Habilita o deshabilita una máquina por etiqueta (o prefijo único) |
-| `hum machines menu` | Menú interactivo: número = alternar, `R` refresca, `Q` sale |
+| `hum ls [--json] [--verbose] [--local] [--machine NAME] [--server-timeout 3s] [--fresh] [--color auto\|always\|never] [--full-names]` | Lists agents: machine → workspace → agent, with each machine's status in its header |
+| `hum id <who> [--json] [--cmd]` | Prints the pane id; `--cmd` gives the `herdr --machine … agent prompt <id>` prefix |
+| `hum say <who> <message…> [--wait] [--timeout MS]` | Sends a message to an agent |
+| `hum ask <who> <message…> [--timeout MS] [--lines N]` | Sends, waits for the agent to settle and prints only the reply on stdout (progress and origin on stderr) |
+| `hum attention [--json] [--watch [--interval 5s] [--notify]]` | Who needs you: `blocked` and `done` first, then `working`; `idle` ones are only counted. `--watch` redraws; `--notify` alerts once per transition to `blocked`/`done` |
+| `hum pick [--local] [--machine NAME] [--full-names]` | Full-screen interactive picker (needs a terminal); see [Picker](#picker-hum-pick) |
+| `hum palette` | Command palette: fuzzy-search and run any herdr command or any plugin's action (needs a terminal; opens with a key); see [Command palette](#command-palette-hum-palette) |
+| `hum keys ls [--all]` / `set <entry> <key> [--force]` / `rm <entry>` | Keyboard shortcuts for the palette entries in herdr's `config.toml`, with prior validation and a backup; see [Assigning or changing keyboard shortcuts](#assigning-or-changing-keyboard-shortcuts-ctrlk) |
+| `hum version` (`-v`, `--version`) | Prints hum's version (the plugin manifest's), the commit if it was built inside the repository, and the platform: `hum 0.1.2 (commit abc1234, windows/amd64)` |
+| `hum trace on\|off\|show\|clear` | Timing trace of the popups, to measure how long they take to draw the first frame; see [Command palette](#command-palette-hum-palette) |
+| `hum new <kind> [folder] [--name N] [--machine M] [--no-focus] [--timeout MS]` | Opens a tab, starts an agent in it and names it; prints `machine/pane`. With no arguments, in a terminal it asks for kind, folder and name; see [Creating an agent](#creating-an-agent-hum-new) |
+| `hum look <who> [--lines N]` | Reads an agent's recent output |
+| `hum name <who> <name>` / `--clear` | Renames the agent **and** the pane at once |
+| `hum worktree ls [<who>]` | Lists the Git worktrees (of the agent's workspace, local or remote; without `<who>`, of the current folder) |
+| `hum worktree new <branch> [<who>] [--base REF] [--label TEXT] [--no-focus]` | Creates a worktree with a new branch. **hum never passes `--trust-repository`**: if herdr asks you to trust the repository, it tells you and you do it with herdr |
+| `hum worktree rm <who> [--force] [--yes]` | **Deletes** the agent's worktree checkout. Asks (`[y/N]`); without a terminal it requires `--yes` |
+| `hum alias set <name> <who>` / `rm <name>` / `ls` | Short names for agents: after `hum alias set docs odoous/odoo-dev`, `hum say docs "…"` works even if the agent's title changes. **The alias wins** over any other match, it is followed only once (an alias does not point to another alias) and it is not checked when saved: it is resolved when used. Aliases are stored in `aliases.json` inside `HERDR_PLUGIN_CONFIG_DIR` or, if that does not exist, in the user's config folder (`…\herdr-human\`). A corrupt file does not break normal resolution: `hum alias ls` tells you what is wrong and the file is not overwritten |
+| `hum close --tab\|--workspace <who> [--yes]` | **Closes** the agent's tab or workspace and stops everything running inside it. In a terminal it asks (`[y/N]`; any other answer cancels); without a terminal it requires `--yes` |
+| `hum rename --tab\|--workspace <who> <label…>` | Renames the agent's tab or workspace (the label may contain spaces; it cannot start with `-` or contain control characters) |
+| `hum go <who>` | Focuses an agent |
+| `hum wait <who> [--until STATE]… [--timeout MS] [--notify]` | Waits until it finishes (by default `idle`, `done` or `blocked`); `--notify` shows a herdr notification on this machine |
+| `hum machines [--json]` | Lists the saved SSH machines with their status (ENABLED/DISABLED) |
+| `hum machines enable\|disable\|toggle <name>` | Enables or disables a machine by label (or unique prefix) |
+| `hum machines rename <name> <new label…>` | Changes a saved machine's label (the new one may contain spaces; if it starts with `-`, put it after `--`). Refuses if another machine already uses that label (case-insensitive), or if it is empty or contains control characters |
+| `hum machines menu` | Interactive menu: number = toggle, `R` refreshes, `Q` quits |
 
-### Máquinas guardadas
+### Saved machines
 
-Sustituye al antiguo script `herdr-machines.ps1`. *Enabled* es estado de
-configuración (conexión SSH automática), no una comprobación de que la máquina
-esté alcanzable, y deshabilitar un perfil deja corriendo las sesiones y procesos
-remotos. Para no pisar a otro cliente, el cambio sigue las mismas garantías del
-script original: relee el perfil por su ID inmutable antes de mutar, se niega si
-desapareció o si su estado cambió desde que lo viste, no hace nada si ya está en
-el estado pedido, confirma el resultado leyendo de nuevo y **nunca reintenta** una
-mutación de resultado incierto.
+It replaces the old `herdr-machines.ps1` script. *Enabled* is configuration
+state (automatic SSH connection), not a check that the machine is reachable, and
+disabling a profile leaves its remote sessions and processes running. So as not
+to step on another client, the change keeps the same guarantees as the original
+script: it re-reads the profile by its immutable ID before mutating, refuses if
+it disappeared or if its state changed since you saw it, does nothing if it is
+already in the requested state, confirms the result by reading again and
+**never retries** a mutation with an uncertain outcome.
 
-El plugin añade la acción *Manage saved machines (hum machines menu)* a la paleta
-(F1); puedes asignarle un atajo:
+`hum machines rename` keeps those same guarantees: it re-reads the profile by its
+ID before renaming, refuses if it disappeared or if another client changed its
+label since you saw it, does nothing if it already has that label, confirms by
+reading again and does not retry. Renaming clears the inventory cache, because
+`machine/` names are resolved by label. A rename does not affect remote
+sessions. Implementation note: the real herdr requires
+`machine rename <id> --label <label>` (the id first) even though clap's help
+suggests another order; hum invokes it that way.
+
+The plugin adds the *Manage saved machines (hum machines menu)* action to the
+palette (F1); you can bind a key to it:
 
 ```toml
 [[keys.command]]
@@ -143,83 +185,83 @@ command = "herdr-human.machines-windows"
 description = "manage SSH machines"
 ```
 
-### Aspecto: colores, glifos y ancho
+### Look: colors, glyphs and width
 
-`ls`, `attention` y `machines menu` usan el mismo kit de render (`internal/ui`):
+`ls`, `attention` and `machines menu` share the same render kit (`internal/ui`):
 
-- **Tema:** se lee `[theme]` (y `[theme.custom]`) de `config.toml` de herdr
-  (`%APPDATA%\herdr\config.toml` en Windows). Hay paletas embebidas para
-  `catppuccin` y `catppuccin-latte`; es una aproximación de los colores de herdr
-  (que no los expone) y con `auto_switch` se usa `name`. Cualquier otro tema, o
-  `terminal`, usa los colores ANSI de la terminal. Los colores de estado
-  (`blocked` rojo, `working` amarillo, `done` azul, `idle` verde) los fijó el
-  autor; no se copiaron de la barra lateral de herdr.
-- **Sin color:** `NO_COLOR`, una tubería, o `--color never`. `--color always` lo
-  fuerza. `--json` nunca lleva adornos.
-- **Glifos:** `○` agente, `◆` pane enfocado, `├─ └─` árbol; `HUM_ASCII=1` usa
-  `o`, `*` y `|- \`-`.
-- **Ancho:** en una terminal las columnas se pegan a la derecha y los nombres se
-  recortan con `…`; en una tubería no se recorta nada. Los títulos tipo Codex
-  (`Tarea | proyecto | 5h 8% left`) muestran solo el primer segmento;
-  `--full-names` los muestra enteros.
+- **Theme:** `[theme]` (and `[theme.custom]`) is read from herdr's `config.toml`
+  (`%APPDATA%\herdr\config.toml` on Windows). There are built-in palettes for
+  `catppuccin` and `catppuccin-latte`; they approximate herdr's colors (which it
+  does not expose) and with `auto_switch` the `name` is used. Any other theme, or
+  `terminal`, uses the terminal's ANSI colors. The status colors (`blocked` red,
+  `working` yellow, `done` blue, `idle` green) were chosen by the author; they
+  were not copied from herdr's sidebar.
+- **No color:** `NO_COLOR`, a pipe, or `--color never`. `--color always` forces
+  it. `--json` never carries decoration.
+- **Glyphs:** `○` agent, `◆` focused pane, `├─ └─` tree; `HUM_ASCII=1` uses `o`,
+  `*` and `|- \`-`.
+- **Width:** in a terminal the columns are pushed to the right and names are cut
+  with `…`; in a pipe nothing is cut. Codex-style titles
+  (`Task | project | 5h 8% left`) show only the first segment; `--full-names`
+  shows them whole.
 
-### Selector (`hum pick`)
+### Picker (`hum pick`)
 
-Marco con título, búsqueda, árbol máquina → workspace → agente, columnas a la
-derecha, fila seleccionada a todo el ancho y pie con migas, ruta y teclas, en el
-estilo del Goto de herdr. Los agentes que te necesitan (`blocked`, `done`) salen
-primero dentro de su workspace.
+A frame with a title, search, a machine → workspace → agent tree, right-aligned
+columns, a full-width selected row and a footer with breadcrumbs, path and keys,
+in the style of herdr's Goto. Agents that need you (`blocked`, `done`) come
+first within their workspace.
 
-| Tecla | Acción |
+| Key | Action |
 |---|---|
-| `↑` `↓` `j` `k`, `PgUp` `PgDn`, `g` `G` | mover la selección |
-| `←` `→` | saltar al workspace anterior / siguiente |
-| `/` | buscar por nombre, tipo, workspace, máquina, tab, ruta o pane (también letras en orden); lo que coincide se resalta. Se edita con `←` `→` `Inicio` `Fin` `Supr` y `Retroceso`; las líneas de Ask, Say y Rename se editan igual |
-| `b` `w` `i` `d` `a` | filtrar `blocked`, `working`, `idle`, `done` / todos |
-| `Enter` | abrir el menú de acciones del agente (ver abajo) |
-| `Ctrl+A` `Ctrl+S` `Ctrl+L` `Ctrl+N` | atajos directos: ask, say, look, rename |
-| `Esc` / `q` / `Ctrl+C` | salir (en la búsqueda, `Esc` la borra) |
-| `r` | refrescar los estados de todas las máquinas (sin quitar las filas; el encabezado muestra `refreshing`) |
-| `Ctrl+U` | borrar la búsqueda |
-| ratón | clic en una fila, rueda para desplazar |
+| `↑` `↓` `j` `k`, `PgUp` `PgDn`, `g` `G` | move the selection |
+| `←` `→` | jump to the previous / next workspace |
+| `/` | search by name, kind, workspace, machine, tab, path or pane (letters in order also work); matches are highlighted. Edit with `←` `→` `Home` `End` `Del` and `Backspace`; the Ask, Say and Rename lines are edited the same way |
+| `b` `w` `i` `d` `a` | filter `blocked`, `working`, `idle`, `done` / all |
+| `Enter` | open the agent's action menu (see below) |
+| `Ctrl+A` `Ctrl+S` `Ctrl+L` `Ctrl+N` | direct shortcuts: ask, say, look, rename |
+| `Esc` / `q` / `Ctrl+C` | quit (in the search, `Esc` clears it) |
+| `r` | refresh the status of every machine (rows are kept; the header shows `refreshing`) |
+| `Ctrl+U` | clear the search |
+| mouse | click a row, wheel to scroll |
 
-Cada máquina aparece cuando responde (`⠋ connecting 3.1s`, luego su tiempo o
-`✖ timeout`), sin bloquear el teclado.
+Each machine shows up when it responds (`⠋ connecting 3.1s`, then its time or
+`✖ timeout`), without blocking the keyboard.
 
-**Menú de acciones** (`Enter` sobre un agente; cada acción tiene su letra):
+**Action menu** (`Enter` on an agent; each action has its letter):
 
-| Acción | Letra | Qué hace |
+| Action | Letter | What it does |
 |---|---|---|
-| Ask… | `a` | pide el mensaje en la línea inferior (`message >`), espera y muestra la respuesta dentro del selector (`── reply ──`, con el origen: tras tu mensaje o las últimas 40 líneas; si el agente queda `blocked` lo dice). Cualquier tecla vuelve a la lista; `Esc` mientras espera deja de esperar y el agente sigue trabajando |
-| Say… | `s` | envía el mensaje sin esperar |
-| Look | `l` | muestra la salida reciente del terminal (se desplaza con `↑↓` `PgUp` `PgDn`) |
-| Rename… | `n` | pide el nombre (`name >`) y valida el formato mientras escribes; vacío borra el nombre |
-| Go to it | `g` | lleva el foco de herdr al agente y cierra el selector |
-| Wait and notify | `w` | espera en segundo plano y avisa con una notificación de herdr al asentarse; puedes seguir navegando |
-| Copy pane id | `c` | copia el pane id (`clip`, `pbcopy`, `wl-copy`, `xclip` o `xsel`) |
+| Ask… | `a` | asks for the message on the bottom line (`message >`), waits and shows the reply inside the picker (`── reply ──`, with its origin: after your message or the last 40 lines; if the agent ends up `blocked` it says so). Any key returns to the list; `Esc` while waiting stops waiting and the agent keeps working |
+| Say… | `s` | sends the message without waiting |
+| Look | `l` | shows the terminal's recent output (scroll with `↑↓` `PgUp` `PgDn`) |
+| Rename… | `n` | asks for the name (`name >`) and validates the format as you type; empty clears the name |
+| Go to it | `g` | moves herdr's focus to the agent and closes the picker |
+| Wait and notify | `w` | waits in the background and shows a herdr notification when it settles; you can keep browsing |
+| Copy pane id | `c` | copies the pane id (`clip`, `pbcopy`, `wl-copy`, `xclip` or `xsel`) |
 
-En los workspaces locales se muestra la rama git a la derecha (se lee de
-`.git/HEAD`, sin ejecutar `git`; `r` la vuelve a leer). El resultado de cada acción
-aparece en la segunda línea del pie. Tras Ask, Say,
-Rename o Wait se refresca la máquina de ese agente para que su estado sea el
-actual; si el refresco falla se avisa y se conservan las filas. Lo que imprime un
-agente se muestra sin caracteres de control, para que no pueda mover el cursor ni
-cambiar la terminal. `hum` sin argumentos abre el selector cuando la entrada y la
-salida son una terminal; con una tubería imprime la ayuda (código 0).
+For local workspaces the git branch is shown on the right (read from
+`.git/HEAD`, without running `git`; `r` reads it again). The result of each
+action appears on the footer's second line. After Ask, Say, Rename or Wait, that
+agent's machine is refreshed so its status is current; if the refresh fails you
+are told and the rows are kept. Whatever an agent prints is shown without
+control characters, so it cannot move the cursor or change the terminal. `hum`
+with no arguments opens the picker when input and output are a terminal; with a
+pipe it prints the help (exit code 0).
 
-### Paleta de comandos (`hum palette`)
+### Command palette (`hum palette`)
 
-Una paleta estilo F1: una tecla abre un popup con **las acciones de herdr que
-tiene sentido lanzar desde una paleta** (workspaces, tabs, panes, worktrees,
-máquinas, plugins…; ver [Qué comandos incluye](#qué-comandos-incluye-y-cuáles-no))
-y **todas las acciones de todos los plugins instalados**, filtrados con
-coincidencia difusa mientras escribes. Elige
-uno, pulsa Enter y se ejecuta. Los comandos que necesitan un dato (un nombre, una
-carpeta, un workspace de destino) lo preguntan; **Esc** en una pregunta lo cancela
-todo. Si algo falla, el popup muestra el motivo en vez de cerrarse en silencio.
+An F1-style palette: one key opens a popup with **the herdr actions that make
+sense to launch from a palette** (workspaces, tabs, panes, worktrees, machines,
+plugins…; see [Which commands are included](#which-commands-are-included-and-which-are-not))
+and **every action of every installed plugin**, filtered with fuzzy matching as
+you type. Pick one, press Enter and it runs. Commands that need a value (a name,
+a folder, a target workspace) ask for it; **Esc** at a question cancels
+everything. If something fails, the popup shows the reason instead of closing
+silently.
 
-Para abrirla, enlaza la acción `palette` de este plugin a una tecla en el
-`config.toml` de herdr y recarga la configuración:
+To open it, bind this plugin's `palette` action to a key in herdr's
+`config.toml` and reload the configuration:
 
 ```toml
 [[keys.command]]
@@ -229,59 +271,60 @@ command = "herdr-human.palette"
 description = "command palette"
 ```
 
-`type = "plugin_action"` importa: con un atajo de tipo `shell` que abra el pane a
-mano, la paleta pierde el contexto desde el que se abrió.
+`type = "plugin_action"` matters: with a `shell` shortcut that opens the pane by
+hand, the palette loses the context it was opened from.
 
-| Tecla | Acción |
+| Key | Action |
 |---|---|
-| escribir | filtra |
-| `↑` `↓` / `ctrl+p` `ctrl+n` | mueve la selección |
-| `RePág` / `AvPág`, `Inicio` / `Fin` | página o extremos de la lista |
-| `Enter` | ejecuta lo seleccionado |
-| `ctrl+w` / `ctrl+u` | borra la última palabra / toda la búsqueda |
-| `Esc` / `ctrl+c` | cierra sin ejecutar nada |
+| type | filters |
+| `↑` `↓` / `ctrl+p` `ctrl+n` | moves the selection |
+| `PgUp` / `PgDn`, `Home` / `End` | page or ends of the list |
+| `Enter` | runs the selection |
+| `ctrl+w` / `ctrl+u` | deletes the last word / the whole search |
+| `Esc` / `ctrl+c` | closes without running anything |
 
-Junto a cada entrada se ve su origen (el plugin, o `Herdr`) y la tecla que tiene
-enlazada en tu `config.toml`. Lo que usaste hace poco aparece primero.
+Next to each entry you see its origin (the plugin, or `Herdr`) and the key bound
+to it in your `config.toml`. What you used recently appears first.
 
-Al escribir, las letras que coinciden se resaltan en el título y en el origen
-(son exactamente las que usa el filtro, así que lo resaltado explica por qué sale
-esa fila). Como la búsqueda también mira la descripción y el id, una fila puede
-aparecer sin letras resaltadas en el título. La línea de ayuda del pie describe la
-entrada seleccionada; si es una acción de plugin sin descripción, muestra su id
-(`Plugin action plugin.accion`), que es lo que se enlaza a una tecla.
+While you type, the matching letters are highlighted in the title and in the
+origin (they are exactly the ones the filter uses, so what is highlighted
+explains why that row shows up). Since the search also looks at the description
+and the id, a row may appear with no highlighted letters in the title. The help
+line in the footer describes the selected entry; if it is a plugin action with no
+description, it shows its id (`Plugin action plugin.action`), which is what you
+bind to a key.
 
-#### Asignar o cambiar atajos de teclado (`ctrl+k`)
+#### Assigning or changing keyboard shortcuts (`ctrl+k`)
 
-Con una fila seleccionada, **`ctrl+k`** abre la pantalla de atajo de esa entrada:
-muestra el que tiene ahora y espera que **pulses la combinación** que quieres. Se
-escribe como en el `config.toml` de herdr (`ctrl+alt+k`, `alt+left`, `f5`,
-`alt+minus`…). Dentro de esa pantalla:
+With a row selected, **`ctrl+k`** opens that entry's shortcut screen: it shows
+the one it has now and waits for you to **press the combination** you want. It is
+written as in herdr's `config.toml` (`ctrl+alt+k`, `alt+left`, `f5`,
+`alt+minus`…). Inside that screen:
 
-| Tecla | Qué hace |
+| Key | What it does |
 |---|---|
-| la combinación | se captura y se valida al instante |
-| `tab` | pone o quita el prefijo de herdr (`prefix+…`); sirve para teclas sueltas, que sin prefijo se comerían lo que escribes |
-| `ctrl+t` | escribir la combinación a mano, para lo que tu terminal no distingue (`ctrl+h`, `prefix+enter`…) |
-| `delete` | quitar el atajo actual (pide confirmación) |
-| `enter` | guardar |
-| `esc` | cerrar la pantalla sin cambiar nada (un segundo `esc` cierra la paleta) |
+| the combination | is captured and validated instantly |
+| `tab` | adds or removes herdr's prefix (`prefix+…`); useful for single keys, which without the prefix would swallow what you type |
+| `ctrl+t` | type the combination by hand, for what your terminal cannot tell apart (`ctrl+h`, `prefix+enter`…) |
+| `delete` | removes the current shortcut (asks for confirmation) |
+| `enter` | saves |
+| `esc` | closes the screen without changing anything (a second `esc` closes the palette) |
 
-**Todas las entradas se pueden enlazar**, de tres maneras según lo que necesiten (la
-pantalla de atajo te dice cuál le toca, en la línea *when pressed*):
+**Every entry can be bound**, in three ways depending on what it needs (the
+shortcut screen tells you which one applies, on the *when pressed* line):
 
-- **Las acciones de cualquier plugin** (las de `hum`, `herdr-rename`, `reviewr`…) se
-  guardan como `type = "plugin_action"` con su id calificado: herdr las invoca.
-- **Los comandos de herdr que no preguntan nada**, por ejemplo *Config: Reload* o
-  *Tab: Close current*, se guardan como `type = "shell"` con la sintaxis de la shell
-  del sistema (`cmd.exe` en Windows, `sh` en el resto) y los ids que herdr da a los
-  comandos de ese tipo (`HERDR_ACTIVE_TAB_ID`…): herdr los ejecuta tal cual, sin
-  interfaz, y por eso son instantáneos.
-- **Todo lo demás** —los comandos que piden **elegir** (*Agent: Focus…*,
-  *Workspace: Switch…*), **escribir** (*Worktree: New…*), los de siguiente/anterior y
-  los de `hum`— no pueden ejecutarse a ciegas desde una tecla, porque necesitan
-  preguntarte algo. Se guardan también como `type = "shell"`, pero el comando
-  **abre el popup de la paleta ya dentro de esa entrada**:
+- **Any plugin's actions** (those of `hum`, `herdr-rename`, `reviewr`…) are
+  saved as `type = "plugin_action"` with their qualified id: herdr invokes them.
+- **herdr commands that ask nothing**, for example *Config: Reload* or
+  *Tab: Close current*, are saved as `type = "shell"` with the system shell's
+  syntax (`cmd.exe` on Windows, `sh` elsewhere) and the ids herdr gives to
+  commands of that type (`HERDR_ACTIVE_TAB_ID`…): herdr runs them as is, with no
+  interface, which is why they are instant.
+- **Everything else** — the commands that ask you to **choose** (*Agent: Focus…*,
+  *Workspace: Switch…*), to **type** (*Worktree: New…*), the next/previous ones
+  and those of `hum` — cannot be run blindly from a key, because they need to ask
+  you something. They are also saved as `type = "shell"`, but the command
+  **opens the palette popup already inside that entry**:
 
   ```toml
   [[keys.command]]
@@ -291,96 +334,99 @@ pantalla de atajo te dice cuál le toca, en la línea *when pressed*):
   description = "Agent: Focus…"
   ```
 
-  `hum palette` lee `HUM_PALETTE_ENTRY` y entra directamente en esa entrada: ves la
-  lista de agentes (o la pregunta que toque) sin buscar ni elegir la fila, eliges y
-  se ejecuta como si lo hubieras hecho desde la lista. **Esc** en la primera pregunta
-  lo cierra todo. Si la entrada no está disponible desde donde pulsaste (por
-  ejemplo, *Pane: Close current* sin pane de origen), la paleta se abre normal con un
-  aviso y no ejecuta nada. Solo vale el id de una entrada del catálogo; la variable
-  la pasa el atajo con `--env`, no la pongas en el entorno de herdr, o `F1` entraría
-  siempre directo.
+  `hum palette` reads `HUM_PALETTE_ENTRY` and goes straight into that entry: you
+  see the list of agents (or whatever question applies) without searching or
+  picking the row, you choose and it runs as if you had done it from the list.
+  **Esc** at the first question closes everything. If the entry is not available
+  from where you pressed the key (for example, *Pane: Close current* with no
+  source pane), the palette opens normally with a notice and runs nothing. Only
+  the id of a catalog entry is valid; the shortcut passes the variable with
+  `--env`, so do not put it in herdr's environment, or `F1` would always enter
+  directly.
 
-Cada cambio al `config.toml` se hace con red de seguridad:
+Every change to `config.toml` is made with a safety net:
 
-1. Se valida **en una copia**, antes de tocar tu archivo, con `herdr config check`
-   (se compara con el resultado del archivo tal como estaba: los problemas que ya
-   tuviera no bloquean un cambio ajeno). Si herdr lo rechaza, no se escribe nada.
-2. Se guarda un respaldo, `config.toml.bak-hum-AAAAMMDD`: el primer cambio de cada
-   día; los siguientes del mismo día no crean más.
-3. Se escribe de una vez (archivo temporal y renombrado) y **solo se toca lo
-   necesario**: cambiar la tecla de un bloque cambia esa línea y conserva sus
-   comentarios y su alineación; un atajo nuevo es un bloque al final; quitarlo borra
-   su bloque. Los finales de línea (`LF` o `CRLF`) se conservan.
-4. Se pide a herdr que recargue la configuración (`herdr server reload-config`).
+1. It is validated **on a copy**, before touching your file, with
+   `herdr config check` (compared with the result for the file as it was: problems
+   it already had do not block an unrelated change). If herdr rejects it,
+   nothing is written.
+2. A backup is saved, `config.toml.bak-hum-YYYYMMDD`: the first change of each
+   day; later ones the same day do not create more.
+3. It is written in one go (temporary file and rename) and **only what is
+   necessary is touched**: changing a block's key changes that line and keeps its
+   comments and alignment; a new shortcut is a block at the end; removing it
+   deletes its block. Line endings (`LF` or `CRLF`) are preserved.
+4. herdr is asked to reload the configuration (`herdr server reload-config`).
 
-**Conflictos.** Una tecla que ya usa otro `[[keys.command]]`, una acción de `[keys]`
-o un modificador de `[keys.indexed]` (`alt` con `1..9`) **se rechaza**, nombrando
-quién la usa: herdr desactivaría uno de los dos. Un atajo **por defecto de herdr**
-(`prefix+n`, `prefix+g`, `prefix+x`…) solo **avisa**, y hay que pulsar `enter` por
-segunda vez: `herdr config check` no lo detecta y no se sabe cuál de los dos gana. La
-lista de defaults es una copia de la documentación de herdr v0.9.5; si herdr la
-cambia, se queda atrás.
+**Conflicts.** A key already used by another `[[keys.command]]`, a `[keys]`
+action or a `[keys.indexed]` modifier (`alt` with `1..9`) **is rejected**, naming
+who uses it: herdr would disable one of the two. A **herdr default** shortcut
+(`prefix+n`, `prefix+g`, `prefix+x`…) only **warns**, and you have to press
+`enter` a second time: `herdr config check` does not detect it and it is not
+known which of the two wins. The list of defaults is a copy of herdr v0.9.5's
+documentation; if herdr changes it, the copy falls behind.
 
-Lo mismo está en la línea de comandos, por si la terminal no entrega una
-combinación o para automatizarlo:
-
-```powershell
-hum keys ls [--all]                 # los atajos de la paleta (--all: todo lo enlazable, con su id)
-hum keys set <entrada> <tecla>      # asigna o cambia; --force para un default de herdr
-hum keys rm <entrada>               # quita el atajo
-```
-
-`<entrada>` es el id que muestra `hum keys ls --all` (`herdr-human.pick-windows`,
-`tab.close`…); un id parcial sugiere los parecidos.
-
-**Dentro de un popup de herdr (`--embedded`).** Un popup de herdr ya dibuja su
-propio marco con el título del pane; si la TUI dibuja otro encima, queda una caja
-dentro de otra. Por eso `hum palette` y `hum pick` aceptan `--embedded`: no
-dibujan marco ni título, solo la línea que separa la búsqueda y un margen de una
-columna, como las vistas nativas de herdr (*Go to*). El selector conserva su barra
-de desplazamiento en el borde derecho y la paleta gana las filas que ocupaban los
-bordes. El manifest del plugin lo pasa en los panes de la paleta y del selector.
-Sin el flag (en una terminal cualquiera) se dibuja el marco propio de siempre, con
-su título; no hay detección automática, para que lo que ves dependa de lo que
-escribes.
-
-**Por qué abre rápido.** La paleta está pensada para abrir al instante, no solo
-para funcionar:
-
-- La acción y el pane arrancan `bin/hum` **directamente**, sin PowerShell ni `sh`
-  de por medio (en Windows, `powershell.exe` tarda cerca de un segundo en
-  arrancar y la versión original lo lanzaba dos veces). Medido en esta máquina
-  con la herramienta de procesos del sistema, desde que se dispara la acción
-  hasta que el proceso de la paleta existe: ~70–95 ms con `hum`, contra
-  ~2,3–2,4 s con la paleta original en Node.
-- **Carga perezosa.** El primer cuadro se dibuja con los comandos que van dentro
-  del binario y las acciones de plugins de la última vez (una caché en la
-  carpeta de estado del plugin). Las acciones actuales se piden a herdr en
-  segundo plano —una sola llamada, `plugin list --json`, en vez de dos— y se
-  incorporan cuando llegan; mientras tanto el encabezado dice `loading plugins…`
-  y, si herdr no responde, `plugins unavailable` sin perder lo ya dibujado.
-- Si no has movido la selección, esta sigue al mejor resultado cuando llegan las
-  acciones nuevas; si ya navegaste, se queda donde estaba.
-- Los workspaces, las pestañas y los agentes se piden a herdr **solo cuando un
-  comando los necesita** (por ejemplo, «Workspace: Next» o un selector), no al abrir.
-- El workspace, la pestaña y el pane de origen se leen de la variable
-  `HERDR_PLUGIN_CONTEXT_JSON` que herdr ya entrega al popup: no hace falta
-  preguntar `pane current` ni pasar variables entre la acción y el pane.
-
-**Medir la apertura (`hum trace`).** Para comprobarlo con números y no a ojo:
+The same is available on the command line, in case the terminal does not deliver
+a combination or to automate it:
 
 ```powershell
-hum trace on        # enciende la traza (también sirve HUM_TRACE=1 en la terminal)
-# ... abre la paleta con su tecla unas cuantas veces ...
-hum trace show      # últimas líneas del log
-hum trace off       # la apaga (el log se conserva); "hum trace clear" lo borra
+hum keys ls [--all]                 # the palette's shortcuts (--all: everything bindable, with its id)
+hum keys set <entry> <key>          # assigns or changes; --force for a herdr default
+hum keys rm <entry>                 # removes the shortcut
 ```
 
-`hum trace on` crea un archivo marcador en la carpeta de caché de hum
-(`%LOCALAPPDATA%\herdr-human` en Windows) en vez de depender de una variable de
-entorno, porque los popups heredan el entorno del **servidor** de herdr y no el de
-tu terminal. Cada línea lleva la hora, el proceso y los milisegundos desde que
-Windows creó el proceso (no desde `main`, así que incluye cargar el `.exe`):
+`<entry>` is the id shown by `hum keys ls --all` (`herdr-human.pick-windows`,
+`tab.close`…); a partial id suggests the similar ones.
+
+**Inside a herdr popup (`--embedded`).** A herdr popup already draws its own
+frame with the pane's title; if the TUI draws another one on top, you get a box
+inside a box. That is why `hum palette` and `hum pick` accept `--embedded`: they
+draw no frame or title, just the line that separates the search and a one-column
+margin, like herdr's native views (*Go to*). The picker keeps its scrollbar on
+the right edge and the palette gains the rows the borders used to take. The
+plugin manifest passes it in the palette and picker panes. Without the flag (in
+any terminal) the usual own frame is drawn, with its title; there is no automatic
+detection, so what you see depends on what you type.
+
+**Why it opens fast.** The palette is meant to open instantly, not just to work:
+
+- The action and the pane start `bin/hum` **directly**, with no PowerShell or
+  `sh` in between (on Windows, `powershell.exe` takes about a second to start and
+  the original version launched it twice). Measured on this machine with the
+  system's process tooling, from the moment the action fires until the palette
+  process exists: ~70–95 ms with `hum`, against ~2.3–2.4 s with the original Node
+  palette.
+- **Lazy loading.** The first frame is drawn with the commands that ship inside
+  the binary and the plugin actions from last time (a cache in the plugin's state
+  folder). The current actions are requested from herdr in the background — a
+  single call, `plugin list --json`, instead of two — and are merged in when they
+  arrive; meanwhile the header says `loading plugins…` and, if herdr does not
+  respond, `plugins unavailable` without losing what was already drawn.
+- If you have not moved the selection, it follows the best result when the new
+  actions arrive; if you already navigated, it stays where it was.
+- Workspaces, tabs and agents are requested from herdr **only when a command
+  needs them** (for example, "Workspace: Next" or a picker), not on open.
+- The source workspace, tab and pane are read from the
+  `HERDR_PLUGIN_CONTEXT_JSON` variable that herdr already hands to the popup:
+  there is no need to ask `pane current` or to pass variables between the action
+  and the pane.
+
+**Measuring the opening (`hum trace`).** To check it with numbers instead of by
+eye:
+
+```powershell
+hum trace on        # turns the trace on (HUM_TRACE=1 in the terminal also works)
+# ... open the palette with its key a few times ...
+hum trace show      # last lines of the log
+hum trace off       # turns it off (the log is kept); "hum trace clear" deletes it
+```
+
+`hum trace on` creates a marker file in hum's cache folder
+(`%LOCALAPPDATA%\herdr-human` on Windows) instead of depending on an environment
+variable, because popups inherit the environment of herdr's **server**, not that
+of your terminal. Each line carries the time, the process and the milliseconds
+since Windows created the process (not since `main`, so it includes loading the
+`.exe`):
 
 ```text
 12:25:12.036Z pid=54840 palette open +24.2ms open: asking herdr to open the pane
@@ -391,80 +437,81 @@ Windows creó el proceso (no desde `main`, así que incluye cargar el `.exe`):
 12:25:12.212Z pid=58372 palette +144.6ms palette: herdr answered with the plugin list
 ```
 
-«Primer cuadro» es cuando se escribe en la terminal el primer fotograma con el
-título (la salida se envuelve conservando el archivo, para que Bubble Tea siga
-conociendo el tamaño de la ventana). «Desde el disparo» cuenta desde que arrancó el
-proceso de la acción; `hum` se lo pasa al popup con `--env HUM_TRACE_T0`, solo si
-la traza está encendida. En esta máquina (Windows, 5 aperturas): ~175–231 ms
-(mediana ~190 ms) desde el disparo hasta el primer cuadro. De ellos, lo que hace
-`hum` desde `main` hasta escribirlo son ~19 ms; ~100 ms son el arranque del pane
-en herdr (un proceso en una consola normal llega a `main` en ~11 ms, el del
-popup en ~106–147 ms), que `hum` no controla. Con la traza apagada no escribe nada.
+"First frame" is when the first frame with the title is written to the terminal
+(the output is wrapped while keeping the file, so Bubble Tea still knows the
+window size). "Since the trigger" counts from when the action's process started;
+`hum` passes it to the popup with `--env HUM_TRACE_T0`, only if the trace is on.
+On this machine (Windows, 5 openings): ~175–231 ms (median ~190 ms) from the
+trigger to the first frame. Of that, what `hum` does from `main` until writing it
+is ~19 ms; ~100 ms is the pane's startup in herdr (a process in a normal console
+reaches `main` in ~11 ms, the popup's in ~106–147 ms), which `hum` does not
+control. With the trace off it writes nothing.
 
-Lo elegido no se ejecuta dentro del popup: mientras está abierto, herdr rechaza
-(`ui_busy`) todo lo que abra un pane o popup. Por eso `hum palette` lanza un
-proceso aparte (`hum palette run`) que espera a que el popup se cierre —
-reintentando mientras herdr siga ocupado— y entonces ejecuta el comando. Si
-falla, lo avisa con una notificación de herdr.
+What you pick is not run inside the popup: while it is open, herdr rejects
+(`ui_busy`) anything that opens a pane or popup. That is why `hum palette`
+launches a separate process (`hum palette run`) that waits for the popup to close
+— retrying while herdr is still busy — and then runs the command. If it fails, it
+says so with a herdr notification.
 
-Los comandos nativos están en `internal/palette/commands.json` (46 entradas: 42 de
-herdr, que usan 25 comandos distintos, y 4 de `hum`) y viajan dentro del binario. Los
-atajos se leen de `HERDR_CONFIG_PATH` o, si no está, del `config.toml` de herdr en
-la carpeta de configuración del sistema (`%APPDATA%\herdr` en Windows). Los
-recientes y la caché viven en `HERDR_PLUGIN_STATE_DIR`.
+The native commands are in `internal/palette/commands.json` (46 entries: 42 from
+herdr, which use 25 distinct commands, and 4 from `hum`) and ship inside the
+binary. Shortcuts are read from `HERDR_CONFIG_PATH` or, if it is not set, from
+herdr's `config.toml` in the system's config folder (`%APPDATA%\herdr` on
+Windows). Recents and the cache live in `HERDR_PLUGIN_STATE_DIR`.
 
-#### Qué comandos incluye (y cuáles no)
+#### Which commands are included (and which are not)
 
-Las **acciones de plugins** se leen de herdr en cada apertura, así que están
-completas: instala un plugin y aparece. Los **comandos nativos de herdr**, en
-cambio, son una lista escrita a mano, porque herdr no ofrece una lista de comandos
-pensada para esto. Para que no se escape ninguno sin que nadie se entere:
+**Plugin actions** are read from herdr on every open, so they are complete:
+install a plugin and it shows up. **Native herdr commands**, on the other hand,
+are a hand-written list, because herdr does not offer a command list meant for
+this. So that none slips through without anyone noticing:
 
-- Cada comando de herdr tiene que estar en `commands.json` **o** en
-  `internal/palette/excluded.go` con el motivo de dejarlo fuera.
-- El test `TestCatalogAndExclusionsAccountForEveryInstalledHerdrCommand` recorre el
-  ayuda del `herdr` instalado y falla si hay un comando en ninguna de las dos
-  listas (o una entrada que apunta a un comando que herdr ya no tiene). Con herdr
-  0.9.4-preview son 95 comandos: 25 en la paleta y 70 excluidos. Si herdr no está
-  instalado (por ejemplo, en CI) el test se salta.
-- Lo recorre desde los sustantivos (`workspace`, `pane`, `plugin`…); los comandos
-  sueltos de nivel superior (`status`, `update`, `completion`) no se comprueban.
+- Every herdr command must be in `commands.json` **or** in
+  `internal/palette/excluded.go` with the reason for leaving it out.
+- The test `TestCatalogAndExclusionsAccountForEveryInstalledHerdrCommand` walks
+  the installed `herdr`'s help and fails if a command is in neither list (or an
+  entry points to a command herdr no longer has). With herdr 0.9.4-preview that
+  is 95 commands: 25 in the palette and 70 excluded. If herdr is not installed
+  (for example, in CI) the test is skipped.
+- It walks them from the nouns (`workspace`, `pane`, `plugin`…); the loose
+  top-level commands (`status`, `update`, `completion`) are not checked.
 
-Se excluyen a propósito: lo que solo imprime información (`list`, `get`, `read`;
-la paleta ejecuta el comando aparte y nadie vería la salida), lo que usan las
-integraciones de agentes, lo destructivo (`worktree remove`, `machine remove`,
-`session delete`, `server stop`…, que conviene hacer desde una terminal donde se
-pueda confirmar), lo que necesita esa terminal, lo de argumentos libres, lo que
-instala código de terceros y lo que `hum` ya resuelve con su propio flujo (de
-`agent prompt`, `agent rename` y `agent start` se encargan los comandos de `hum`
-de abajo).
+They are excluded on purpose: what only prints information (`list`, `get`,
+`read`; the palette runs the command separately and nobody would see the output),
+what agent integrations use, what is destructive (`worktree remove`,
+`machine remove`, `session delete`, `server stop`…, best done from a terminal
+where you can confirm), what needs that terminal, what takes free-form
+arguments, what installs third-party code, and what `hum` already solves with its
+own flow (the `hum` commands below take care of `agent prompt`, `agent rename`
+and `agent start`).
 
-#### Comandos de `hum` en la paleta
+#### `hum` commands in the palette
 
-Cuatro entradas con origen `hum` (en `commands.json` llevan `"runner": "hum"`):
+Five entries with origin `hum` (in `commands.json` they carry `"runner": "hum"`):
 
-| Entrada | Ejecuta | Pregunta |
+| Entry | Runs | Asks |
 |---|---|---|
-| *Agent: New…* | `hum new <tipo> <carpeta> [--name N]` | tipo de agente (la lista de `hum new`), carpeta (parte de la del pane de origen) y nombre opcional |
-| *Agent: Say…* | `hum say <agente> -- <mensaje>` | agente y mensaje |
-| *Agent: Rename…* | `hum name <agente> <nombre>` | agente y nombre |
-| *Agent: Notify me when it settles…* | `hum wait <agente> --notify` | agente; avisa con una notificación de herdr cuando termine o te necesite |
+| *Agent: New…* | `hum new <kind> <folder> [--name N]` | agent kind (the `hum new` list), folder (starts from the source pane's) and optional name |
+| *Agent: Say…* | `hum say <agent> -- <message>` | agent and message |
+| *Agent: Rename…* | `hum name <agent> <name>` | agent and name |
+| *Agent: Notify me when it settles…* | `hum wait <agent> --notify` | agent; notifies with a herdr notification when it finishes or needs you |
+| *Machine: Rename…* | `hum machines rename <machine> -- <label>` | saved machine and new label; refuses if another machine already uses that label |
 
-Se ejecutan en un proceso aparte (`hum palette run --hum …`) con el mismo reintento
-de `ui_busy` que los de herdr. Si fallan, avisan con una notificación; `hum wait`
-terminando bloqueado o por plazo no se avisa dos veces, porque ya lo cuenta él.
-*Agent: New…* deja el nombre vacío para usar el tipo: un valor opcional vacío no
-añade ni `--name` ni el valor. Un test comprueba que cada comando y cada opción
-que usa el catálogo existe en la CLI de `hum`, así que renombrar uno rompe el test
-y no la paleta.
+They run in a separate process (`hum palette run --hum …`) with the same `ui_busy`
+retry as the herdr ones. If they fail, they notify; when `hum wait` ends blocked
+or by timeout it is not notified twice, because it already reports that itself.
+*Agent: New…* leaves the name empty to use the kind: an empty optional value adds
+neither `--name` nor the value. A test checks that every command and every option
+the catalog uses exists in `hum`'s CLI, so renaming one breaks the test and not
+the palette.
 
-Para añadir un comando: una entrada en `commands.json` (fuentes de argumento
-`literal`, `context`, `input` y `select`; en un `input`, `flag` lo hace opcional;
-selectores `workspaces`, `tabs`, `agents`, `machines`, `plugins` y `agent_kinds`;
-`"runner": "hum"` si es un comando de `hum`) y quitarlo de `excluded.go` si estaba
-ahí.
+To add a command: an entry in `commands.json` (argument sources `literal`,
+`context`, `input` and `select`; in an `input`, `flag` makes it optional;
+selectors `workspaces`, `tabs`, `agents`, `machines`, `plugins` and
+`agent_kinds`; `"runner": "hum"` if it is a `hum` command) and remove it from
+`excluded.go` if it was there.
 
-### Crear un agente (`hum new`)
+### Creating an agent (`hum new`)
 
 ```text
 $ hum new claude C:\src\dev\raw --name docs
@@ -475,214 +522,222 @@ creating claude...
 local/wS:pA
 ```
 
-Es la secuencia `tab create` + `agent start` + `pane rename` en una sola orden. El
-progreso va a stderr y solo `maquina/pane` a stdout, así que se puede capturar
-(`$ref = hum new codex`).
+It is the `tab create` + `agent start` + `pane rename` sequence in a single
+command. Progress goes to stderr and only `machine/pane` to stdout, so it can be
+captured (`$ref = hum new codex`).
 
-- **Tipo:** uno de los que herdr sabe arrancar (`claude`, `codex`, `gemini`, `pi`…;
-  la lista completa está en `herdr agent start --help`). Se comprueba antes de crear
-  nada, para que una errata no deje un tab vacío.
-- **Carpeta:** por defecto la actual; `~` es tu carpeta personal y una ruta relativa
-  cuelga de la actual. En una máquina remota se envía tal cual, y si se omite decide
-  herdr (la carpeta de este equipo no existe allí).
-- **Máquina:** `hum new odoous/claude …` o `hum new claude … --machine odoous`
-  (equivalentes); `local` es este equipo.
-- **Nombre:** `--name` (mismas reglas que `hum name`); sin él, el agente se llama
-  como su tipo y el pane no se renombra.
-- `--no-focus` no lleva el foco al tab nuevo; `--timeout MS` cambia cuánto se espera
-  a que el agente esté listo (por defecto 30 s).
-- **Si un paso falla** se dice cuál y qué quedó creado, con una pista para limpiarlo
-  (`herdr tab close …` o `hum name …`); no se deshace nada en silencio.
+- **Kind:** one of the kinds herdr knows how to start (`claude`, `codex`,
+  `gemini`, `pi`…; the full list is in `herdr agent start --help`). It is checked
+  before creating anything, so a typo does not leave an empty tab behind.
+- **Folder:** the current one by default; `~` is your home folder and a relative
+  path hangs from the current one. On a remote machine it is sent as is, and if
+  omitted herdr decides (this machine's folder does not exist there).
+- **Machine:** `hum new odoous/claude …` or `hum new claude … --machine odoous`
+  (equivalent); `local` is this machine.
+- **Name:** `--name` (same rules as `hum name`); without it the agent is named
+  after its kind and the pane is not renamed.
+- `--no-focus` does not move the focus to the new tab; `--timeout MS` changes how
+  long to wait for the agent to be ready (30 s by default).
+- **If a step fails** it says which one and what was left created, with a hint to
+  clean it up (`herdr tab close …` or `hum name …`); nothing is silently undone.
 
-### Autocompletado (`hum completion`)
+### Autocompletion (`hum completion`)
 
-`hum completion bash|zsh|powershell` imprime el script de la shell. Completa
-subcomandos, opciones (`--fresh`, `--color`…), sus valores (`--color auto|always|never`,
-`--until idle|working|…`, `--machine` con tus máquinas), los tipos de `hum new`, las
-subórdenes de `hum machines` y, donde va un `<quién>`, los agentes.
+`hum completion bash|zsh|powershell` prints the shell script. It completes
+subcommands, options (`--fresh`, `--color`…), their values
+(`--color auto|always|never`, `--until idle|working|…`, `--machine` with your
+machines), the kinds for `hum new`, the `hum machines` subcommands and, wherever
+a `<who>` goes, agents.
 
-| Shell | Instalación |
+| Shell | Installation |
 |---|---|
-| PowerShell | `hum completion powershell \| Out-String \| Invoke-Expression` (añádelo a `$PROFILE`) |
-| bash | `source <(hum completion bash)` (añádelo a `~/.bashrc`) |
-| zsh | `hum completion zsh > "${fpath[1]}/_hum"` y abre una shell nueva, o `source <(hum completion zsh)` con `compinit` ya cargado |
+| PowerShell | `hum completion powershell \| Out-String \| Invoke-Expression` (add it to `$PROFILE`) |
+| bash | `source <(hum completion bash)` (add it to `~/.bashrc`) |
+| zsh | `hum completion zsh > "${fpath[1]}/_hum"` and open a new shell, or `source <(hum completion zsh)` with `compinit` already loaded |
 
-- **Nunca espera a la red.** Los agentes locales se consultan en vivo (milisegundos)
-  y los remotos salen de lo último que guardó la [caché](#rendimiento), aunque haya
-  caducado (hasta una hora). La caché se llena con `ls`, `attention`, `pick` y al
-  resolver nombres, así que basta con haberlos usado hace poco.
-- **Qué nombres sugiere:** `maquina/pane` (`odoous/w1:p2`) y los nombres que `hum`
-  entiende (`docs-agent`, `odoous/docs-agent`). Los títulos con espacios (`Configura
-  Odoo 18 | …`) no se sugieren; ponle un nombre con `hum name` y aparecerá.
-- Descripciones (tipo, estado y título) en zsh y PowerShell. Tras `hum new <tipo>`,
-  la carpeta se completa con la shell.
-- Todo lo que viene de un agente o de tu configuración se limpia de caracteres de
-  control antes de llegar a la línea de comandos.
-- Los scripts llaman a `hum __complete --shell S --line TEXTO` (comando interno que
-  nunca falla ni escribe en stderr); sirve para depurar lo que sugiere.
+- **It never waits for the network.** Local agents are queried live
+  (milliseconds) and remote ones come from whatever the [cache](#performance)
+  last saved, even if it has expired (up to an hour). The cache is filled by
+  `ls`, `attention`, `pick` and when resolving names, so it is enough to have
+  used them recently.
+- **Which names it suggests:** `machine/pane` (`odoous/w1:p2`) and the names
+  `hum` understands (`docs-agent`, `odoous/docs-agent`). Titles with spaces
+  (`Configura Odoo 18 | …`) are not suggested; give it a name with `hum name`
+  and it will show up.
+- Descriptions (kind, status and title) in zsh and PowerShell. After
+  `hum new <kind>`, the folder is completed by the shell.
+- Everything that comes from an agent or from your configuration is stripped of
+  control characters before reaching the command line.
+- The scripts call `hum __complete --shell S --line TEXT` (an internal command
+  that never fails or writes to stderr); it is useful to debug what it suggests.
 
-### Preguntar y esperar
+### Asking and waiting
 
-`hum ask` usa `agent prompt --wait` y luego lee el terminal. La respuesta es una
-**heurística**: lo que aparece después del mensaje enviado (se busca el comienzo
-del mensaje en pantalla) y, si no se encuentra o no hay nada detrás, las últimas
-`--lines` líneas (40); stderr dice cuál de las dos se usó. Si el agente queda
-`blocked` no se imprime respuesta: se avisa de qué espera (última línea) y se sale
-con `3`; `Ctrl+C` deja de esperar y el agente sigue trabajando. `hum wait` es lo
-mismo sin enviar nada.
+`hum ask` uses `agent prompt --wait` and then reads the terminal. The reply is a
+**heuristic**: whatever appears after the sent message (the start of the message
+is searched for on screen) and, if it is not found or there is nothing after it,
+the last `--lines` lines (40); stderr says which of the two was used. If the
+agent ends up `blocked` no reply is printed: it tells you what it is waiting for
+(last line) and exits with `3`; `Ctrl+C` stops waiting and the agent keeps
+working. `hum wait` is the same without sending anything.
 
-Las opciones pueden ir en cualquier posición. Si el mensaje de `say` contiene
-palabras que empiezan por `-`, ponlas después de `--`.
+Options can go in any position. If the `say` message contains words that start
+with `-`, put them after `--`.
 
-### Cómo se elige el agente (`<quién>`)
+### How the agent is chosen (`<who>`)
 
-Se prueba en este orden y gana el primer nivel con coincidencias, sin distinguir
-mayúsculas:
+They are tried in this order and the first level with matches wins, ignoring
+case:
 
-1. igual al pane id (`w1:p2`), al nombre o al tipo de agente (`codex`);
-2. el nombre empieza por lo escrito;
-3. el nombre contiene lo escrito;
-4. las letras aparecen en orden dentro del nombre (`cnf` → `Configura…`).
+1. equal to the pane id (`w1:p2`), to the name or to the agent kind (`codex`);
+2. the name starts with what was typed;
+3. the name contains what was typed;
+4. the letters appear in order within the name (`cnf` → `Configura…`).
 
-Si un nivel tiene varias coincidencias, `hum` falla y las lista como
-`maquina/pane` para que elijas. El prefijo `maquina/` (o `local/`) restringe la
-búsqueda a un servidor y, además, evita consultar las demás máquinas.
+If a level has several matches, `hum` fails and lists them as `machine/pane` so
+you can choose. The `machine/` (or `local/`) prefix restricts the search to one
+server and also avoids querying the other machines.
 
-`--machine NOMBRE` hace lo mismo con otra sintaxis: `hum ask odoous/codex "…"` es
-equivalente a `hum ask codex "…" --machine odoous`. `--machine local` nombra el
-servidor local y se puede repetir para buscar solo entre varias máquinas. Con
-cualquiera de las dos formas no se consulta a las máquinas no mencionadas, así que
-una máquina habilitada pero caída (por ejemplo *WSL Ubuntu*) no genera avisos.
-(En `ls`, `--machine` sigue incluyendo siempre el servidor local.)
+`--machine NAME` does the same with another syntax: `hum ask odoous/codex "…"`
+is equivalent to `hum ask codex "…" --machine odoous`. `--machine local` names
+the local server and can be repeated to search only among several machines. With
+either form the machines not mentioned are not queried, so an enabled but down
+machine (for example *WSL Ubuntu*) produces no warnings. (In `ls`, `--machine`
+still always includes the local server.)
 
-## Errores con pista
+## Errors with hints
 
-Un error dice qué pasó y, cuando la causa es conocida, una línea `hint:` con qué
-hacer: consulta ambigua (`use "maquina/pane", e.g. …`), agente inexistente
-(`run "hum ls"`), máquina inalcanzable que podría tener al agente, agente
-`blocked` (`hum go …`), agente cerrado y nombre inválido. En una terminal
-interactiva (entrada **y** salida), una consulta ambigua pregunta
-`Which one? [1-N, Enter to cancel]` en vez de fallar. Enter, `q` o `Ctrl+C`
-cancelan al instante (`cancelled`, código 1); una respuesta que no sea un número de
-la lista conserva el error original con su pista. Un fallo sin explicación no inventa pistas.
+An error says what happened and, when the cause is known, a `hint:` line with
+what to do: ambiguous query (`use "machine/pane", e.g. …`), nonexistent agent
+(`run "hum ls"`), unreachable machine that might hold the agent, `blocked` agent
+(`hum go …`), closed agent and invalid name. In an interactive terminal (input
+**and** output), an ambiguous query asks `Which one? [1-N, Enter to cancel]`
+instead of failing. Enter, `q` or `Ctrl+C` cancel instantly (`cancelled`, exit
+code 1); an answer that is not a number from the list keeps the original error
+with its hint. A failure with no explanation does not invent hints.
 
-## Códigos de salida
+## Exit codes
 
-`0` correcto · `1` error (no encontrado, ambiguo, herdr falló) · `2` uso incorrecto ·
-`3` el agente quedó `blocked` esperando a la persona (`wait`; con `--until blocked`
-ese estado es un éxito) · `4` venció el plazo de `--timeout` (`wait`).
+`0` success · `1` error (not found, ambiguous, herdr failed) · `2` incorrect
+usage · `3` the agent ended up `blocked` waiting for a person (`wait`; with
+`--until blocked` that state is a success) · `4` the `--timeout` expired (`wait`).
 
-## Diseño
+## Design
 
 ```text
-cmd/hum                punto de entrada (señales, os.Exit)
-internal/cli           subcomandos, flags y formato de salida
-internal/resolve       consulta de una persona → un agente
-internal/inventory     local + máquinas en paralelo, con timeout y fallo aislado
-internal/actions       say, look, name, focus sobre comandos de herdr
-internal/herdr         Runner sobre el ejecutable, sobre JSON y errores de la API
-internal/herdrtest     Runner falso para pruebas
-internal/gitinfo       rama de git de una carpeta, leída de .git/HEAD
-internal/complete      autocompletado (bash, zsh, PowerShell) sin red
+cmd/hum                entry point (signals, os.Exit)
+internal/cli           subcommands, flags and output format
+internal/resolve       a person's query → one agent
+internal/inventory     local + machines in parallel, with timeout and isolated failure
+internal/actions       say, look, name, focus on top of herdr commands
+internal/herdr         Runner over the executable, over JSON and API errors
+internal/herdrtest     fake Runner for tests
+internal/gitinfo       a folder's git branch, read from .git/HEAD
+internal/complete      autocompletion (bash, zsh, PowerShell) without network
 ```
 
-Una máquina que no responde se avisa por `stderr` y no impide ver las demás;
-solo un fallo del servidor local es fatal. Cada consulta tiene un límite de 8 s
-(`--server-timeout 3s` lo cambia).
+A machine that does not respond is reported on `stderr` and does not prevent
+seeing the others; only a failure of the local server is fatal. Each query has a
+limit of 8 s (`--server-timeout 3s` changes it).
 
-### Rendimiento
+### Performance
 
-Cada llamada remota de herdr cuesta ~1,3 s por el SSH, así que `hum` hace **una**
-por máquina (`herdr api snapshot`, que trae agentes y workspaces juntos) y todas
-las máquinas en paralelo; el tiempo total es el de la más lenta. Medido con
-`odoous`: 2,75 s con dos llamadas seguidas → 1,4 s con el snapshot. Si `hum ls`
-tarda, `hum ls --verbose` imprime en `stderr` cuánto tardó cada servidor
-(`timings: local 21ms, odoous 1.3s, …`) para ver cuál lo frena; con
-`--machine`/`--local` o `--server-timeout` puedes saltarte o recortar el lento.
-Solo si un servidor responde que no soporta el snapshot se usan las dos listas.
+Each remote herdr call costs ~1.3 s because of SSH, so `hum` makes **one** per
+machine (`herdr api snapshot`, which brings agents and workspaces together) and
+all machines in parallel; the total time is that of the slowest. Measured with
+`odoous`: 2.75 s with two consecutive calls → 1.4 s with the snapshot. If
+`hum ls` is slow, `hum ls --verbose` prints on `stderr` how long each server took
+(`timings: local 21ms, odoous 1.3s, …`) to see which one is slowing it down; with
+`--machine`/`--local` or `--server-timeout` you can skip or cut the slow one. The
+two lists are used only if a server answers that it does not support the
+snapshot.
 
-**`ls` progresivo.** En una terminal, `hum ls` dibuja el árbol en cuanto pasa un
-instante (150 ms) y lo va **redibujando en su sitio**: lo local y lo cacheado
-aparecen ya, y cada máquina que aún no responde muestra `⠋ connecting 2.1s` hasta
-que llega su tiempo o su `✖ timeout`. El resultado final es el mismo árbol de
-siempre. Si todo responde en ese margen se imprime una sola vez, sin parpadeo. No se
-redibuja (y se imprime una vez al final) si el árbol no cabe en la altura de la
-terminal, si la altura no se conoce, con una tubería o con `--json`.
+**Progressive `ls`.** In a terminal, `hum ls` draws the tree as soon as a moment
+passes (150 ms) and keeps **redrawing it in place**: local and cached data show
+up right away, and each machine that has not responded yet shows
+`⠋ connecting 2.1s` until its time or its `✖ timeout` arrives. The final result
+is the same tree as always. If everything responds within that margin it is
+printed once, without flicker. It is not redrawn (and printed once at the end) if
+the tree does not fit the terminal's height, if the height is unknown, with a
+pipe or with `--json`.
 
-**Caché.** La respuesta de cada máquina **remota** se guarda 10 s en la carpeta de
-caché del usuario (`%LocalAppData%\herdr-human\inventory.json` en Windows;
-`~/.cache/herdr-human/` en Linux), con permisos solo para ti. Así, repetir `hum ls`
-o resolver un nombre (`hum say`, `ask`, `look`, `id`, `name`, `go`, `wait`) justo
-después no vuelve a pagar la espera de SSH.
+**Cache.** Each **remote** machine's response is kept for 10 s in the user's
+cache folder (`%LocalAppData%\herdr-human\inventory.json` on Windows;
+`~/.cache/herdr-human/` on Linux), with permissions for you only. That way,
+repeating `hum ls` or resolving a name (`hum say`, `ask`, `look`, `id`, `name`,
+`go`, `wait`) right afterwards does not pay the SSH wait again.
 
-- El servidor local **nunca** se cachea: responde en milisegundos y sus estados
-  cambian a cada rato. `hum attention` y `hum pick` tampoco la leen (siempre en
-  vivo), pero lo que consultan **renueva** la caché para que `ls` y el
-  autocompletado tengan datos recientes.
-- Una máquina que falla o da timeout no se guarda, así que se reintenta.
-- `ls` marca lo que viene de la caché en el encabezado de la máquina
-  (`cached 3s`); `--json` no cambia.
-- `--fresh` (en `ls` y en los comandos que resuelven un nombre) ignora lo guardado
-  y lo renueva.
-- Si un nombre no aparece y parte de los datos eran de la caché, `hum` consulta en
-  vivo antes de darlo por inexistente (puede haber nacido hace unos segundos).
-- `hum new` y `hum name` borran la caché, para no servir datos anteriores al cambio.
-- El plazo por máquina (`--server-timeout`, 8 s por defecto) se respeta aunque
-  `herdr` deje un proceso `ssh` colgado: se corta como mucho 1 s después.
+- The local server is **never** cached: it responds in milliseconds and its
+  states change all the time. `hum attention` and `hum pick` do not read the
+  cache either (always live), but what they query **renews** it so `ls` and
+  autocompletion have recent data.
+- A machine that fails or times out is not saved, so it is retried.
+- `ls` marks what comes from the cache in the machine's header (`cached 3s`);
+  `--json` does not change.
+- `--fresh` (in `ls` and in the commands that resolve a name) ignores what is
+  stored and renews it.
+- If a name does not appear and part of the data came from the cache, `hum`
+  queries live before declaring it nonexistent (it may have been born a few
+  seconds ago).
+- `hum new` and `hum name` clear the cache, so as not to serve data from before
+  the change.
+- The per-machine deadline (`--server-timeout`, 8 s by default) is respected even
+  if `herdr` leaves a hung `ssh` process: it is cut at most 1 s later.
 
-## Desarrollo
+## Development
 
 ```powershell
 pwsh -NoProfile -File scripts\check.ps1
 ```
 
-Ejecuta, en este orden, `gofmt -s`, `goimports`, `go vet`, `staticcheck` y
-`go test -race`, y falla en el primer problema. Hay que pasarlo antes de cada
-commit. `goimports` y `staticcheck` son opcionales: si faltan (o si
-`staticcheck` es demasiado antiguo para el toolchain de Go) se avisa y se
-continúa, pero el aviso no significa que el código haya pasado ese linter.
+It runs, in this order, `gofmt -s`, `goimports`, `go vet`, `staticcheck` and
+`go test -race`, and fails on the first problem. It must pass before every
+commit. `goimports` and `staticcheck` are optional: if they are missing (or if
+`staticcheck` is too old for the Go toolchain) you are warned and it continues,
+but the warning does not mean the code passed that linter.
 
-Las pruebas usan un `Runner` falso, no ejecutan herdr. Todo el código y los
-mensajes de la CLI van en inglés; la documentación y los comentarios, en español.
+Tests use a fake `Runner`; they do not run herdr. All code and CLI messages are
+in English; the documentation exists in English (`README.md`, the source of
+truth) and Spanish (`README.es.md`, a translation kept in sync).
 
-### Prueba de humo contra herdr real
+### Smoke test against a real herdr
 
 ```powershell
 go build -o bin\hum.exe .\cmd\hum
-pwsh -NoProfile -File scripts\smoke.ps1                     # solo esta máquina
-pwsh -NoProfile -File scripts\smoke.ps1 -Machine odoous     # y una máquina remota
+pwsh -NoProfile -File scripts\smoke.ps1                     # this machine only
+pwsh -NoProfile -File scripts\smoke.ps1 -Machine odoous     # and a remote machine
 ```
 
-Es de **solo lectura**: lanza `help`, `ls`, `attention`, `machines`, `id`, `look`,
-`completion`, `__complete` y `alias ls` (esta, con una carpeta temporal vacía);
-nunca envía, crea, renombra, cierra ni borra. Un test
-(`cmd\hum\smoke_test.go`) falla si el script lanza otra orden. Cada paso acaba en
-`PASS`, `FAIL` o `SKIP`; un `SKIP` (por ejemplo, una máquina que no responde)
-significa «no comprobado» y no cuenta como correcto. Sale con 1 si algún paso
-falla. No imprime títulos, rutas ni nombres de agentes. Necesita herdr en marcha,
-por eso `check.ps1` no la ejecuta. Como cualquier `ls`, puede actualizar la caché
-de inventario de hum.
+It is **read-only**: it runs `help`, `ls`, `attention`, `machines`, `id`, `look`,
+`completion`, `__complete` and `alias ls` (the latter with an empty temporary
+folder); it never sends, creates, renames, closes or deletes. A test
+(`cmd\hum\smoke_test.go`) fails if the script runs any other command. Each step
+ends in `PASS`, `FAIL` or `SKIP`; a `SKIP` (for example, a machine that does not
+respond) means "not checked" and does not count as passing. It exits with 1 if
+any step fails. It does not print titles, paths or agent names. It needs herdr
+running, which is why `check.ps1` does not run it. Like any `ls`, it may update
+hum's inventory cache.
 
-## Agradecimientos
+## Acknowledgements
 
-La paleta de comandos (`hum palette`) nace del plugin
-**[herdr-command-palette](https://github.com/barnuri/herdr-command-palette)** de
-[barnuri](https://github.com/barnuri), con licencia MIT. Gracias por la idea, por
-el catálogo de comandos de herdr (`commands.json`) y por el diseño de la
-interacción —la búsqueda difusa, los recientes, los atajos mostrados junto a cada
-acción y el reparto entre la acción que abre el popup y el proceso que ejecuta lo
-elegido—, que aquí se han portado a Go.
+The command palette (`hum palette`) originates from the
+**[herdr-command-palette](https://github.com/barnuri/herdr-command-palette)**
+plugin by [barnuri](https://github.com/barnuri), MIT licensed. Thanks for the
+idea, for the herdr command catalog (`commands.json`) and for the interaction
+design — the fuzzy search, the recents, the shortcuts shown next to each action
+and the split between the action that opens the popup and the process that runs
+the chosen command — which have been ported to Go here.
 
-Si solo quieres la paleta, sin el resto de `hum`, el plugin original sigue siendo
-una gran opción: `herdr plugin install barnuri/herdr-command-palette`. El aviso de
-licencia completo está en [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+If you only want the palette, without the rest of `hum`, the original plugin
+remains a great option: `herdr plugin install barnuri/herdr-command-palette`. The
+full license notice is in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-## Limitaciones conocidas (v0)
+## Known limitations (v0)
 
-- El selector (`hum pick`) es una primera versión: el popup del plugin sigue
-  mostrando solo `hum ls`, y la rama git solo aparece en workspaces del servidor
-  local (en una máquina remota costaría otra llamada por SSH).
-- El texto de `say` debe ir inmediatamente después del pane id: herdr no admite
-  `--`, y `hum` ya lo tiene en cuenta.
-- `--machine` limita las máquinas guardadas que se consultan; el servidor local
-  siempre se incluye.
+- The picker (`hum pick`) is a first version: the plugin's popup still shows only
+  `hum ls`, and the git branch only appears in local-server workspaces (on a
+  remote machine it would cost another SSH call).
+- The `say` text must go immediately after the pane id: herdr does not support
+  `--`, and `hum` already accounts for it.
+- `--machine` limits which saved machines are queried; the local server is
+  always included.

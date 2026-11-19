@@ -196,3 +196,172 @@ func TestSetEnabledDoesNotRetryAFailedMutation(t *testing.T) {
 		t.Errorf("enable called %d times, want 1", n)
 	}
 }
+
+func renameCmd(id, label string) []string {
+	// herdr exige el ID antes de --label (su ayuda de clap dice lo contrario).
+	return []string{"machine", "rename", id, "--label", label}
+}
+
+func TestRenameChangesTheLabelAndConfirmsIt(t *testing.T) {
+	t.Parallel()
+
+	fake := herdrtest.New()
+	// Relectura previa y lectura de confirmación.
+	fake.Sequence("", listCmd,
+		listJSON(profile("id1", "remoto2", true), profile("id2", "odoous", true)),
+		listJSON(profile("id1", "servidor dos", true), profile("id2", "odoous", true)))
+	fake.Reply("", renameCmd("id1", "servidor dos"), "ok")
+
+	res, err := machines.Service{Runner: fake}.Rename(context.Background(), herdr.Profile{ID: "id1", Label: "remoto2", Enabled: true}, "servidor dos")
+	if err != nil {
+		t.Fatalf("Rename() error = %v", err)
+	}
+	if !res.Changed || res.Profile.Label != "servidor dos" {
+		t.Errorf("result = %+v, want a confirmed change to %q", res, "servidor dos")
+	}
+	if n := calls(fake, "rename"); n != 1 {
+		t.Errorf("rename called %d times, want exactly 1", n)
+	}
+}
+
+func TestRenameTrimsTheLabel(t *testing.T) {
+	t.Parallel()
+
+	fake := herdrtest.New()
+	fake.Sequence("", listCmd, listJSON(profile("id1", "remoto2", true)), listJSON(profile("id1", "nuevo", true)))
+	fake.Reply("", renameCmd("id1", "nuevo"), "ok")
+
+	res, err := machines.Service{Runner: fake}.Rename(context.Background(), herdr.Profile{ID: "id1", Label: "remoto2", Enabled: true}, "  nuevo \t")
+	if err != nil || !res.Changed {
+		t.Fatalf("Rename() = %+v, %v; want a change with the trimmed label", res, err)
+	}
+}
+
+func TestRenameIsANoOpWhenTheLabelIsAlreadyThat(t *testing.T) {
+	t.Parallel()
+
+	fake := herdrtest.New()
+	fake.Reply("", listCmd, listJSON(profile("id1", "odoous", true)))
+
+	res, err := machines.Service{Runner: fake}.Rename(context.Background(), herdr.Profile{ID: "id1", Label: "odoous", Enabled: true}, "odoous")
+	if err != nil {
+		t.Fatalf("Rename() error = %v", err)
+	}
+	if res.Changed {
+		t.Errorf("result = %+v, want Changed=false", res)
+	}
+	if n := calls(fake, "rename"); n != 0 {
+		t.Errorf("made %d mutations, want 0", n)
+	}
+}
+
+func TestRenameAllowsChangingOnlyTheCaseOfItsOwnLabel(t *testing.T) {
+	t.Parallel()
+
+	fake := herdrtest.New()
+	fake.Sequence("", listCmd, listJSON(profile("id1", "odoous", true)), listJSON(profile("id1", "Odoous", true)))
+	fake.Reply("", renameCmd("id1", "Odoous"), "ok")
+
+	res, err := machines.Service{Runner: fake}.Rename(context.Background(), herdr.Profile{ID: "id1", Label: "odoous", Enabled: true}, "Odoous")
+	if err != nil || !res.Changed {
+		t.Fatalf("Rename() = %+v, %v; want the case change to go through", res, err)
+	}
+}
+
+func TestRenameRefusesALabelAnotherMachineUses(t *testing.T) {
+	t.Parallel()
+
+	fake := herdrtest.New()
+	fake.Reply("", listCmd, listJSON(profile("id1", "remoto2", true), profile("id2", "odoous", true)))
+
+	_, err := machines.Service{Runner: fake}.Rename(context.Background(), herdr.Profile{ID: "id1", Label: "remoto2", Enabled: true}, "ODOOUS")
+	if !errors.Is(err, machines.ErrLabelTaken) {
+		t.Fatalf("Rename() error = %v, want ErrLabelTaken", err)
+	}
+	if n := calls(fake, "rename"); n != 0 {
+		t.Errorf("made %d mutations, want 0", n)
+	}
+}
+
+func TestRenameRejectsInvalidLabelsWithoutTouchingHerdr(t *testing.T) {
+	t.Parallel()
+
+	for name, label := range map[string]string{
+		"empty":          "",
+		"blank":          "   ",
+		"starts with -":  "-x",
+		"control chars":  "a\x1b[2Jb",
+		"newline inside": "a\nb",
+	} {
+		fake := herdrtest.New()
+		_, err := machines.Service{Runner: fake}.Rename(context.Background(), herdr.Profile{ID: "id1", Label: "remoto2"}, label)
+		if !errors.Is(err, machines.ErrInvalidLabel) {
+			t.Errorf("%s: Rename() error = %v, want ErrInvalidLabel", name, err)
+		}
+		if n := len(fake.Calls()); n != 0 {
+			t.Errorf("%s: made %d herdr calls, want 0", name, n)
+		}
+	}
+}
+
+func TestRenameRefusesWhenTheProfileChangedElsewhere(t *testing.T) {
+	t.Parallel()
+
+	fake := herdrtest.New()
+	// La persona vio "remoto2", pero otro cliente ya la llamó "otra".
+	fake.Reply("", listCmd, listJSON(profile("id1", "otra", true)))
+
+	_, err := machines.Service{Runner: fake}.Rename(context.Background(), herdr.Profile{ID: "id1", Label: "remoto2", Enabled: true}, "nuevo")
+	if !errors.Is(err, machines.ErrStateChanged) {
+		t.Fatalf("Rename() error = %v, want ErrStateChanged", err)
+	}
+	if n := calls(fake, "rename"); n != 0 {
+		t.Errorf("made %d mutations, want 0", n)
+	}
+}
+
+func TestRenameRefusesWhenTheProfileWasRemoved(t *testing.T) {
+	t.Parallel()
+
+	fake := herdrtest.New()
+	fake.Reply("", listCmd, listJSON(profile("other", "odoous", true)))
+
+	_, err := machines.Service{Runner: fake}.Rename(context.Background(), herdr.Profile{ID: "id1", Label: "remoto2"}, "nuevo")
+	if !errors.Is(err, machines.ErrProfileGone) {
+		t.Fatalf("Rename() error = %v, want ErrProfileGone", err)
+	}
+}
+
+func TestRenameReportsAnUnconfirmedOutcomeWithoutRetrying(t *testing.T) {
+	t.Parallel()
+
+	fake := herdrtest.New()
+	// herdr acepta el comando pero la etiqueta no cambia.
+	fake.Reply("", listCmd, listJSON(profile("id1", "remoto2", true)))
+	fake.Reply("", renameCmd("id1", "nuevo"), "ok")
+
+	_, err := machines.Service{Runner: fake}.Rename(context.Background(), herdr.Profile{ID: "id1", Label: "remoto2", Enabled: true}, "nuevo")
+	if !errors.Is(err, machines.ErrUnconfirmed) {
+		t.Fatalf("Rename() error = %v, want ErrUnconfirmed", err)
+	}
+	if n := calls(fake, "rename"); n != 1 {
+		t.Errorf("rename called %d times, want 1 (a mutation of uncertain outcome is never retried)", n)
+	}
+}
+
+func TestRenameDoesNotRetryAFailedMutation(t *testing.T) {
+	t.Parallel()
+
+	boom := errors.New("socket closed")
+	fake := herdrtest.New()
+	fake.Reply("", listCmd, listJSON(profile("id1", "remoto2", true)))
+	fake.Fail("", renameCmd("id1", "nuevo"), boom)
+
+	_, err := machines.Service{Runner: fake}.Rename(context.Background(), herdr.Profile{ID: "id1", Label: "remoto2", Enabled: true}, "nuevo")
+	if !errors.Is(err, boom) {
+		t.Fatalf("Rename() error = %v, want the mutation error", err)
+	}
+	if n := calls(fake, "rename"); n != 1 {
+		t.Errorf("rename called %d times, want 1", n)
+	}
+}

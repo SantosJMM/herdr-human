@@ -1,6 +1,6 @@
 // Paquete machines gestiona los perfiles de máquinas SSH guardados en herdr:
-// listarlos, encontrarlos por nombre y habilitarlos o deshabilitarlos con las
-// mismas garantías que el menú original (relectura por ID, sin reintentos
+// listarlos, encontrarlos por nombre, habilitarlos o deshabilitarlos y
+// renombrarlos con las mismas garantías que el menú original (relectura por ID, sin reintentos
 // ante resultados inciertos y confirmación posterior).
 package machines
 
@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"unicode"
 
 	"github.com/SantosJMM/herdr-human/internal/herdr"
 )
@@ -20,6 +21,10 @@ var (
 	ErrStateChanged = errors.New("the profile changed elsewhere; review the current state first")
 	// ErrProfileGone indica que el perfil ya no existe.
 	ErrProfileGone = errors.New("the profile was removed; refresh and choose again")
+	// ErrInvalidLabel indica que la etiqueta nueva no es aceptable.
+	ErrInvalidLabel = errors.New("label must be text without control characters and must not start with \"-\"")
+	// ErrLabelTaken indica que otra máquina ya usa esa etiqueta.
+	ErrLabelTaken = errors.New("another saved machine already uses that label")
 	// ErrUnconfirmed indica que herdr aceptó el cambio pero no se pudo
 	// comprobar que surtiera efecto. No se reintenta automáticamente.
 	ErrUnconfirmed = errors.New("the change could not be confirmed")
@@ -114,6 +119,72 @@ func (s Service) SetEnabled(ctx context.Context, selected herdr.Profile, enabled
 	}
 	if confirmed.Enabled != enabled {
 		return Result{}, fmt.Errorf("%w: %q is still %s", ErrUnconfirmed, fresh.Label, state(confirmed.Enabled))
+	}
+	return Result{Profile: confirmed, Changed: true}, nil
+}
+
+// ValidLabel devuelve la etiqueta sin espacios en los extremos si es
+// aceptable. Se rechaza la vacía, la que empieza por "-" (herdr podría tomarla
+// como una opción) y la que lleva caracteres de control.
+func ValidLabel(label string) (string, error) {
+	trimmed := strings.TrimSpace(label)
+	if trimmed == "" || strings.HasPrefix(trimmed, "-") || strings.ContainsFunc(trimmed, unicode.IsControl) {
+		return "", fmt.Errorf("%q: %w", label, ErrInvalidLabel)
+	}
+	return trimmed, nil
+}
+
+// Rename cambia la etiqueta del perfil que la persona vio (selected).
+//
+// Valida la etiqueta antes de tocar herdr. Después relee los perfiles: si el
+// perfil desapareció o su etiqueta ya no es la que se vio, se niega
+// (ErrProfileGone, ErrStateChanged); si ya tiene esa etiqueta no hace nada; si
+// otra máquina usa esa etiqueta (sin distinguir mayúsculas) se niega
+// (ErrLabelTaken). Tras mutar vuelve a leerlo para confirmar; si no se
+// confirma devuelve ErrUnconfirmed. La mutación nunca se reintenta. Cambiar
+// solo las mayúsculas de la propia etiqueta es válido.
+func (s Service) Rename(ctx context.Context, selected herdr.Profile, label string) (Result, error) {
+	label, err := ValidLabel(label)
+	if err != nil {
+		return Result{}, err
+	}
+
+	profiles, err := herdr.ListProfiles(ctx, s.Runner)
+	if err != nil {
+		return Result{}, fmt.Errorf("%w: %v", ErrProfileGone, err)
+	}
+	fresh, found := herdr.Profile{}, false
+	for _, p := range profiles {
+		if p.ID == selected.ID {
+			fresh, found = p, true
+			break
+		}
+	}
+	if !found {
+		return Result{}, fmt.Errorf("%w: profile %s not found", ErrProfileGone, selected.ID)
+	}
+	if fresh.Label != selected.Label {
+		return Result{}, fmt.Errorf("%w (now %q)", ErrStateChanged, fresh.Label)
+	}
+	if fresh.Label == label {
+		return Result{Profile: fresh}, nil
+	}
+	for _, p := range profiles {
+		if p.ID != fresh.ID && strings.EqualFold(p.Label, label) {
+			return Result{}, fmt.Errorf("%w (%q)", ErrLabelTaken, p.Label)
+		}
+	}
+
+	if err := herdr.SetLabel(ctx, s.Runner, fresh.ID, label); err != nil {
+		return Result{}, fmt.Errorf("rename %q: %w", fresh.Label, err)
+	}
+
+	confirmed, err := s.lookup(ctx, fresh.ID)
+	if err != nil {
+		return Result{}, fmt.Errorf("%w: re-reading %q failed: %v", ErrUnconfirmed, fresh.Label, err)
+	}
+	if confirmed.Label != label {
+		return Result{}, fmt.Errorf("%w: it is still called %q", ErrUnconfirmed, confirmed.Label)
 	}
 	return Result{Profile: confirmed, Changed: true}, nil
 }
