@@ -126,9 +126,10 @@ Usage:
                                                 ctrl+k). Every change is checked with
                                                 "herdr config check" on a copy first, backed
                                                 up and applied atomically
-  hum trace on|off|show|clear                    timing trace of the popups (to measure how long
+  hum trace on [--content] | off | show | clear  timing trace of the popups (to measure how long
                                                 they take to draw their first frame); "show"
-                                                prints the last lines of the log
+                                                prints the last lines of the log. --content
+                                                opts into logging messages and secrets
   hum new <kind> [folder] [--name NAME] [--machine NAME] [--no-focus] [--timeout MS]
                                                 open a tab, start an agent in it and
                                                 name it; prints machine/pane. Without

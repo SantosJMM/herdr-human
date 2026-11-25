@@ -77,7 +77,31 @@ func newTracer(args []string, start time.Time) (*trace.Tracer, func()) {
 	if err != nil {
 		return nil, nothing
 	}
-	return trace.New(f, strings.Join(args, " "), start), func() { _ = f.Close() }
+	return trace.New(f, traceLabel(args, trace.ContentEnabled(dir)), start), func() { _ = f.Close() }
+}
+
+// traceLabel solo incluye argumentos libres cuando se ha pedido --content.
+// Incluso un comando desconocido puede ser texto privado: no se copia al log.
+func traceLabel(args []string, content bool) string {
+	if content {
+		return strings.Join(args, " ")
+	}
+	if len(args) == 0 {
+		return "hum"
+	}
+	switch args[0] {
+	case "palette":
+		if len(args) > 1 && args[1] == "open" {
+			return "palette open"
+		}
+		return "palette"
+	case "help", "version", "ls", "id", "say", "ask", "attention", "pick",
+		"new", "completion", "look", "name", "rename", "close", "worktree",
+		"alias", "go", "wait", "machines", "popup", "keys":
+		return args[0]
+	default:
+		return "hum"
+	}
 }
 
 // cacheDir es la carpeta de caché del usuario para hum; vacía (sin caché) si el
