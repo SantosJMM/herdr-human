@@ -75,6 +75,27 @@ func TestEnabledByEnvironmentOrByTheMarkerFile(t *testing.T) {
 	}
 }
 
+func TestOnlyAnExplicitContentMarkerEnablesContent(t *testing.T) {
+	dir := t.TempDir()
+	if ContentEnabled("") || ContentEnabled(dir) {
+		t.Fatal("content is off without a marker")
+	}
+	for _, value := range []string{"1\n", "1", "content", "true", ""} {
+		if err := os.WriteFile(filepath.Join(dir, markerName), []byte(value), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if ContentEnabled(dir) {
+			t.Errorf("legacy or unknown marker %q enabled content", value)
+		}
+	}
+	if err := SetContentEnabled(dir); err != nil || !ContentEnabled(dir) {
+		t.Fatalf("explicit opt-in failed: %v", err)
+	}
+	if err := SetEnabled(dir, true); err != nil || ContentEnabled(dir) {
+		t.Fatalf("normal enable must reset content mode: %v", err)
+	}
+}
+
 func TestLogPathFollowsHUMTRACEWhenItLooksLikeAPath(t *testing.T) {
 	if got := LogPath(env(map[string]string{"HUM_TRACE": "1"}), "/cache"); got != filepath.Join("/cache", "trace.log") {
 		t.Errorf("got %q", got)

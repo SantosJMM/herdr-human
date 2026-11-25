@@ -137,7 +137,7 @@ already renames (*Rename…* action).
 | `hum palette` | Command palette: fuzzy-search and run any herdr command or any plugin's action (needs a terminal; opens with a key); see [Command palette](#command-palette-hum-palette) |
 | `hum keys ls [--all]` / `set <entry> <key> [--force]` / `rm <entry>` | Keyboard shortcuts for the palette entries in herdr's `config.toml`, with prior validation and a backup; see [Assigning or changing keyboard shortcuts](#assigning-or-changing-keyboard-shortcuts-ctrlk) |
 | `hum version` (`-v`, `--version`) | Prints hum's version (the plugin manifest's), the commit if it was built inside the repository, and the platform: `hum 0.1.2 (commit abc1234, windows/amd64)` |
-| `hum trace on\|off\|show\|clear` | Timing trace of the popups, to measure how long they take to draw the first frame; see [Command palette](#command-palette-hum-palette) |
+| `hum trace on [--content] \| off \| show \| clear` | Timing trace of the popups; `--content` explicitly opts into recording full CLI arguments. See [Command palette](#command-palette-hum-palette) |
 | `hum new <kind> [folder] [--name N] [--machine M] [--no-focus] [--timeout MS]` | Opens a tab, starts an agent in it and names it; prints `machine/pane`. With no arguments, in a terminal it asks for kind, folder and name; see [Creating an agent](#creating-an-agent-hum-new) |
 | `hum look <who> [--lines N]` | Reads an agent's recent output |
 | `hum name <who> <name>` / `--clear` | Renames the agent **and** the pane at once |
@@ -420,6 +420,22 @@ hum trace on        # turns the trace on (HUM_TRACE=1 in the terminal also works
 hum trace show      # last lines of the log
 hum trace off       # turns it off (the log is kept); "hum trace clear" deletes it
 ```
+
+By default, both `hum trace on` and `HUM_TRACE=1` (including a custom log path)
+record only known command names and timing marks. Free CLI arguments, agent
+names, paths and message text are omitted; unknown commands are labeled `hum`.
+Existing timing markers, process IDs and trigger-to-first-frame measurements
+are preserved.
+
+To debug complete message arguments, explicitly opt in with
+`hum trace on --content`. **Warning:** this persistently records full CLI
+arguments, including messages, paths, tokens and other secrets, for subsequent
+commands and popups sharing the cache folder. Prefer synthetic data and do not
+share these logs without reviewing them. `hum trace show` identifies content
+mode. Run `hum trace on` to return to timings only, or `hum trace off` to stop
+tracing; both revoke the content opt-in. Existing log entries remain, including
+content recorded before switching modes or upgrading. The flag records CLI
+arguments, not message text supplied through stdin or agent replies.
 
 `hum trace on` creates a marker file in hum's cache folder
 (`%LOCALAPPDATA%\herdr-human` on Windows) instead of depending on an environment

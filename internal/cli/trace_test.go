@@ -64,13 +64,33 @@ func TestTraceOnOffShowClear(t *testing.T) {
 
 func TestTraceUsageAndMissingCacheFolder(t *testing.T) {
 	t.Parallel()
-	for _, args := range [][]string{{}, {"nope"}, {"on", "extra"}} {
+	for _, args := range [][]string{{}, {"nope"}, {"on", "extra"}, {"off", "--content"}, {"show", "--content"}, {"on", "--content", "extra"}} {
 		if out := runTrace(t, t.TempDir(), envWith(nil), args...); out.code != 2 {
 			t.Errorf("%v: want usage error (2), got %+v", args, out)
 		}
 	}
 	if out := runTrace(t, "", envWith(nil), "on"); out.code != 1 || !strings.Contains(out.stderr, "no cache folder") {
 		t.Errorf("without a cache folder there is nowhere to write: %+v", out)
+	}
+}
+
+func TestTraceContentRequiresExplicitFlagAndCanBeRevoked(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	none := envWith(nil)
+	if out := runTrace(t, dir, none, "on", "--content"); out.code != 0 || !strings.Contains(out.stdout, "secrets") {
+		t.Fatalf("content mode must warn about sensitive data: %+v", out)
+	}
+	if !trace.ContentEnabled(dir) || !trace.Enabled(none, dir) {
+		t.Fatal("content mode must persist for other processes")
+	}
+	if out := runTrace(t, dir, none, "show"); !strings.Contains(out.stdout, "with content") {
+		t.Fatalf("show must identify content mode: %+v", out)
+	}
+	for _, mode := range []string{"on", "off"} {
+		if out := runTrace(t, dir, none, mode); out.code != 0 || trace.ContentEnabled(dir) {
+			t.Fatalf("%s must revoke content mode: %+v", mode, out)
+		}
 	}
 }
 

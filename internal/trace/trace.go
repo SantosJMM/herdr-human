@@ -106,10 +106,30 @@ func SetEnabled(dir string, on bool) error {
 		}
 		return nil
 	}
+	return writeMarker(dir, "1\n")
+}
+
+// ContentEnabled dice si se pidió explícitamente guardar los argumentos completos.
+// Los marcadores antiguos ("1") solo habilitan tiempos, nunca contenido.
+func ContentEnabled(dir string) bool {
+	if dir == "" {
+		return false
+	}
+	data, err := os.ReadFile(filepath.Join(dir, markerName))
+	return err == nil && string(data) == "content\n"
+}
+
+// SetContentEnabled enciende la traza persistente con contenido sensible.
+// SetEnabled(dir, true) vuelve al modo de tiempos sin contenido.
+func SetContentEnabled(dir string) error {
+	return writeMarker(dir, "content\n")
+}
+
+func writeMarker(dir, mode string) error {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
-	return os.WriteFile(marker, []byte("1\n"), 0o600)
+	return os.WriteFile(filepath.Join(dir, markerName), []byte(mode), 0o600)
 }
 
 // Open abre el archivo de la traza para añadir líneas, empezando de cero si se
